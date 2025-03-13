@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pokémon Smile - Main Menu</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+  <link rel="icon" type="image/png" href="{{ url_for('static', filename='favicon.png') }}">
+  <meta name="theme-color" content="#ffcc70">
+</head>
+
+<body>
+  <div class="main-menu">
+    <h1 class="title">Pokémon Smile</h1>
+
+    <div class="menu-buttons">
+      <a href="/brushing" class="menu-btn start">Start Brushing</a>
+      <a href="/pokedex" class="menu-btn pokedex">Pokédex</a>
+      <a class="menu-btn settings" onclick="toggleSettingsPopup()">Settings</a>
+
+    </div>
+
+    <div class="footer-buttons">
+      <button class="footer-btn profile" onclick="toggleProfilePopup()">Profile</button>
+      <button class="footer-btn music" onclick="toggleMenuMusic()">🎵</button>
+      <button class="footer-btn help" onclick="toggleHelpPopup()">Help</button>
+    </div>
+  </div>
+
+  <div class="bottom-arc"></div>
+  <div class="bottom-pokemon">
+    <div class="speech-bubble" id="buddyNameBubble">Let's brush!</div>
+    <img id="buddySprite" src="{{ sprite_url }}" alt="{{ pokemon_name }}">
+  </div>
+
+  <!-- Help Popup -->
+  <div class="popup-overlay" id="helpPopup" style="display:none;">
+    <div class="popup-box">
+      <h2>🦷 How Pokémon Smile Works</h2>
+      <p>Welcome! Here's how you can brush your teeth and catch Pokémon:</p>
+      <ul style="text-align:left; font-size:1rem; line-height:1.6;">
+        <li>✨ Choose a buddy Pokémon to brush with!</li>
+        <li>🪥 Start brushing and follow along while your buddy helps clean teeth.</li>
+        <li>⏱ A mystery Pokémon will appear as you brush—keep brushing to reveal it!</li>
+        <li>📸 The camera helps track your brushing (don't worry, nothing is saved).</li>
+        <li>🎯 At the end, try to catch the Pokémon you revealed!</li>
+        <li>📔 You’ll see your caught Pokémon in the Pokédex!</li>
+      </ul>
+      <button onclick="toggleHelpPopup()">Got it!</button>
+    </div>
+  </div>
+
+  <!-- Settings Popup -->
+  <div class="popup-overlay" id="settingsPopup" style="display:none;">
+    <div class="popup-box">
+      <h2>⚙️ Settings</h2>
+      <label for="brushingDuration">🕒 Brushing Duration:</label>
+      <select id="brushingDuration" class="popup-select"></select>
+
+      <label for="musicToggle">🎵 Background Music:</label>
+      <select id="musicToggle" class="popup-select"></select>
+
+      <label for="musicTrack">🎶 Preferred Music Track:</label>
+      <select id="musicTrack" class="popup-select"></select>
+
+      <div style="margin-top:20px;">
+        <h3>🗑 Reset Pokédex</h3>
+        <button class="popup-button" onclick="showResetPopup()">Reset Pokédex</button>
+      </div>
+      <button class="popup-button back-btn" onclick="toggleSettingsPopup()">Close Settings</button>
+    </div>
+  </div>
+
+  <!-- Reset Confirmation Popup -->
+  <div class="popup-overlay" id="resetPopup" style="display:none;">
+    <div class="popup-box">
+      <h2>Confirm Pokédex Reset</h2>
+      <p>To reset, solve this math problem:</p>
+      <p id="mathProblem" class="popup-math"></p>
+      <input type="number" id="mathAnswer" class="popup-select" placeholder="Your answer">
+      <button class="popup-button" onclick="attemptReset()">Confirm Reset</button>
+      <p id="resetMessage" class="popup-message"></p>
+      <button class="popup-button back-btn" onclick="closeResetPopup()">Cancel</button>
+    </div>
+  </div>
+
+  <!-- Profile Selection Popup -->
+  <div class="popup-overlay" id="profilePopup" style="display:none;">
+    <div class="popup-box">
+      <h2>Create a Profile</h2>
+      <input type="text" id="kidName" placeholder="Your Name"><br><br>
+      <input type="text" id="pokemonSearch" placeholder="Buddy Pokémon Name">
+      <button onclick="searchPokemon()">Search</button>
+      <div id="pokemonResult" style="margin-top: 20px;"></div>
+      <br>
+      <button onclick="saveProfile()">OK</button>
+      <button onclick="closeProfilePopup()">Cancel</button>
+    </div>
+  </div>
+
+  <script>
+
+    const profileBtn = document.querySelector('.footer-btn.profile');
+    const profilePopup = document.getElementById('profilePopup');
+
+    if (profileBtn) {
+      profileBtn.addEventListener('click', () => {
+        profilePopup.style.display = 'flex';
+      });
+    }
+
+    window.closeProfilePopup = function () {
+      profilePopup.style.display = 'none';
+      document.getElementById('pokemonResult').innerHTML = '';
+    };
+
+    window.searchPokemon = async function () {
+      const name = document.getElementById('pokemonSearch').value.trim().toLowerCase();
+      if (!name) return;
+
+      const response = await fetch(`https://pokeapi.co/api/v2/pokemon/${name}`);
+      const resultBox = document.getElementById('pokemonResult');
+
+      if (response.ok) {
+        const data = await response.json();
+        const sprite = data.sprites.front_default;
+        resultBox.innerHTML = `
+            <h3>${data.name.toUpperCase()}</h3>
+            <img src="${sprite}" alt="${data.name}" style="width: 120px;">
+          `;
+        resultBox.dataset.pokemonName = data.name;
+        resultBox.dataset.pokemonSprite = sprite;
+      } else {
+        resultBox.innerHTML = `<p>Couldn't find that Pokémon.</p>`;
+      }
+    };
+
+    window.saveProfile = function () {
+      const kidName = document.getElementById('kidName').value.trim();
+      const pokemonName = document.getElementById('pokemonResult').dataset.pokemonName;
+      const pokemonSprite = document.getElementById('pokemonResult').dataset.pokemonSprite;
+
+      if (!kidName || !pokemonName) {
+        alert("Please enter a name and choose a Pokémon.");
+        return;
+      }
+
+      const profile = {
+        name: kidName,
+        buddyPokemon: {
+          name: pokemonName,
+          sprite: pokemonSprite
+        }
+      };
+
+      localStorage.setItem("activeProfile", JSON.stringify(profile));
+      closeProfilePopup();
+      updateBuddyDisplay();
+
+      fetch("/api/save_profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(profile)
+      })
+        .then(res => res.json())
+        .then(data => console.log("Saved to Mongo:", data))
+        .catch(err => console.error("Failed to save to Mongo:", err));
+
+      closeProfilePopup();
+      updateBuddyDisplay();
+
+      alert(`Profile for ${kidName} saved!`);
+    };
+
+    function updateBuddyDisplay() {
+      const profile = JSON.parse(localStorage.getItem("activeProfile"));
+      if (profile && profile.buddyPokemon) {
+        const img = document.getElementById("buddySprite");
+        const bubble = document.getElementById("buddyNameBubble");
+        img.src = profile.buddyPokemon.sprite;
+        img.alt = profile.buddyPokemon.name;
+        bubble.textContent = `Let's brush with ${profile.buddyPokemon.name.charAt(0).toUpperCase() + profile.buddyPokemon.name.slice(1)}!`;
+      }
+    }
+
+    // Set buddy on load
+    updateBuddyDisplay();
+
+    function toggleMenuMusic() {
+      if (window.menuMusic && !window.menuMusic.paused) {
+        window.menuMusic.pause();
+      } else if (window.menuMusic) {
+        window.menuMusic.play();
+      } else {
+        startMenuMusic(); // fallback if not initialized yet
+      }
+    }
+
+    function startMenuMusic() {
+      const musicSetting = localStorage.getItem("musicToggle") || "on";
+
+      // Prevent multiple tracks
+      if (window.menuMusic && !window.menuMusic.paused) return;
+
+      if (musicSetting === "on") {
+        const randomIndex = Math.floor(Math.random() * 5) + 1;
+        const track = `/static/music/BGM Main 0${randomIndex}.mp3`;
+
+        window.menuMusic = new Audio(track);
+        window.menuMusic.loop = true;
+        window.menuMusic.volume = 0.5;
+
+        window.menuMusic.play().catch(() => {
+          document.body.addEventListener("click", () => window.menuMusic.play().catch(() => { }), { once: true });
+        });
+      }
+    }
+
+    function stopMenuMusic() {
+      if (window.menuMusic) {
+        window.menuMusic.pause();
+        window.menuMusic = null;
+      }
+    }
+
+    // Start music automatically on load
+    window.addEventListener("DOMContentLoaded", async () => {
+      startMenuMusic();
+
+      const localProfile = localStorage.getItem("activeProfile");
+      if (localProfile) {
+        updateBuddyDisplay();
+        return;
+      }
+
+      try {
+        const response = await fetch("/api/get_profiles");
+        const profiles = await response.json();
+
+        if (profiles.length === 0) {
+          // No profiles found — prompt for profile creation
+          toggleProfilePopup();
+        } else {
+          // Load first profile automatically
+          const profile = profiles[0];
+          localStorage.setItem("activeProfile", JSON.stringify(profile));
+          updateBuddyDisplay();
+        }
+      } catch (err) {
+        console.error("Error checking profiles:", err);
+        toggleProfilePopup(); // fallback
+      }
+    });
+
+    const brushingSelect = document.getElementById("brushingDuration");
+    const musicToggle = document.getElementById("musicToggle");
+    const musicTrackSelect = document.getElementById("musicTrack");
+
+    brushingSelect.innerHTML = `
+      <option value="60">1 minute</option>
+      <option value="120">2 minutes</option>
+      <option value="180">3 minutes</option>`;
+
+    musicToggle.innerHTML = `
+      <option value="on">On</option>
+      <option value="off">Off</option>`;
+
+    musicTrackSelect.innerHTML = `
+      <option value="random">Random</option>
+      <option value="1">Track 1</option>
+      <option value="2">Track 2</option>
+      <option value="3">Track 3</option>
+      <option value="4">Track 4</option>
+      <option value="5">Track 5</option>
+      <option value="6">Track 6</option>
+      <option value="7">Track 7</option>`;
+
+    brushingSelect.value = localStorage.getItem("brushingTime") || "60";
+    musicToggle.value = localStorage.getItem("musicToggle") || "on";
+    musicTrackSelect.value = localStorage.getItem("preferredMusic") || "random";
+
+    brushingSelect.addEventListener("change", () => localStorage.setItem("brushingTime", brushingSelect.value));
+    musicToggle.addEventListener("change", () => localStorage.setItem("musicToggle", musicToggle.value));
+    musicTrackSelect.addEventListener("change", () => localStorage.setItem("preferredMusic", musicTrackSelect.value));
+
+    let correctAnswer;
+    function showResetPopup() {
+      const num1 = Math.floor(Math.random() * 20 + 10);
+      const num2 = Math.floor(Math.random() * 20 + 10);
+      correctAnswer = num1 * num2;
+      document.getElementById("mathProblem").textContent = `${num1} × ${num2} = ?`;
+      document.getElementById("mathAnswer").value = "";
+      document.getElementById("resetMessage").textContent = "";
+      document.getElementById("resetPopup").style.display = "flex";
+    }
+
+    function closeResetPopup() {
+      document.getElementById("resetPopup").style.display = "none";
+    }
+
+    function attemptReset() {
+      const userAnswer = parseInt(document.getElementById("mathAnswer").value);
+      const message = document.getElementById("resetMessage");
+      if (userAnswer === correctAnswer) {
+        localStorage.removeItem("caught_pokemon");
+        message.textContent = "✅ Pokédex reset successfully!";
+        message.style.color = "green";
+      } else {
+        message.textContent = "❌ Incorrect answer. Try again!";
+        message.style.color = "red";
+      }
+    }
+
+    function toggleSettingsPopup() {
+      const popup = document.getElementById("settingsPopup");
+      popup.style.display = popup.style.display === "flex" ? "none" : "flex";
+    }
+
+    function toggleHelpPopup() {
+      const popup = document.getElementById("helpPopup");
+      popup.style.display = popup.style.display === "flex" ? "none" : "flex";
+    }
+
+    function toggleProfilePopup() {
+      const popup = document.getElementById("profilePopup");
+      popup.style.display = popup.style.display === "flex" ? "none" : "flex";
+
+      // Show list of existing profiles
+      fetch("/api/get_profiles")
+        .then(res => res.json())
+        .then(profiles => {
+          const resultBox = document.getElementById("pokemonResult");
+          resultBox.innerHTML += `<hr><h3>Or select an existing profile:</h3>`;
+          profiles.forEach(p => {
+            const btn = document.createElement("button");
+            btn.className = "popup-button";
+            btn.textContent = `${p.name} (${p.buddyPokemon.name})`;
+            btn.onclick = () => {
+              localStorage.setItem("activeProfile", JSON.stringify(p));
+              updateBuddyDisplay();
+              closeProfilePopup();
+            };
+            resultBox.appendChild(btn);
+          });
+        });
+    }
+
+    const buddySprite = document.getElementById("buddySprite");
+    const jumpSound = new Audio("/static/sfx/jump.mp3");
+
+    buddySprite.classList.add("float"); // add float animation on page load
+
+    buddySprite.addEventListener("click", () => {
+      // Play sound
+      jumpSound.currentTime = 0;
+      jumpSound.play();
+
+      // Temporarily remove float and add jump
+      buddySprite.classList.remove("float");
+      buddySprite.classList.add("jump-animation");
+
+      setTimeout(() => {
+        buddySprite.classList.remove("jump-animation");
+        buddySprite.classList.add("float");
+      }, 500);
+    });
+
+  </script>
+</body>
+
+</html>

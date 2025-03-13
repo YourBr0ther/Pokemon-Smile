@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Brushing Screen</title>
+  <script defer src="{{ url_for('static', filename='brushing.js') }}"></script>
+  <link rel="stylesheet" href="{{ url_for('static', filename='brushing.css') }}">
+  <link rel="icon" type="image/png" href="{{ url_for('static', filename='favicon.png') }}">
+</head>
+<body>
+  <div class="brushing-screen">
+    <!-- Cloud Background -->
+    <div class="clouds"></div>
+
+    <!-- Pause Button -->
+    <button class="pause-btn">⏸️</button>
+
+    <!-- Countdown Timer -->
+    <div class="timer" id="timer">60</div>
+
+    <!-- Camera Placeholder -->
+    <div class="camera-placeholder">[ CAMERA FEED HERE ]</div>
+
+    <!-- Shadow Pokémon Reveal -->
+    <div class="shadow-pokemon">
+      <img id="shadowPokemon" src="/static/images/shadow_pokemon.png" alt="Mystery Pokémon">
+    </div>
+
+    <!-- Buddy Pokémon Walking -->
+    <div class="buddy-pokemon">
+      <img id="buddySprite" src="/static/images/default_buddy.png" alt="Default Buddy">
+    </div>
+
+    <!-- Gooey Teeth at Bottom -->
+    <div class="teeth-goo"></div>
+  </div>
+
+  <script>
+
+function startCamera() {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    console.error("Camera API not supported in this browser or insecure context.");
+    cameraPlaceholder.textContent = "Camera not supported or insecure context.";
+    return;
+  }
+
+  const video = document.createElement("video");
+  video.setAttribute("autoplay", "");
+  video.setAttribute("playsinline", ""); // important for iOS
+  video.style.width = "100%";
+  video.style.height = "100%";
+  video.style.objectFit = "cover";
+  cameraPlaceholder.innerHTML = "";
+  cameraPlaceholder.appendChild(video);
+
+  navigator.mediaDevices.getUserMedia({ video: true })
+    .then((stream) => {
+      video.srcObject = stream;
+    })
+    .catch((err) => {
+      console.error("Camera access denied or failed:", err);
+      cameraPlaceholder.textContent = "Unable to access camera.";
+    });
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+    // Existing buddy image setup
+    const profile = JSON.parse(localStorage.getItem("activeProfile"));
+    const buddyImg = document.getElementById("buddySprite");
+    if (profile && profile.buddyPokemon) {
+      buddyImg.src = profile.buddyPokemon.sprite;
+      buddyImg.alt = profile.buddyPokemon.name;
+    }
+
+    // 🎵 Random Brushing Music Setup
+    const musicCount = 7;
+    const trackNumber = Math.floor(Math.random() * musicCount) + 1;
+    const audio = new Audio(`/static/music/BGM Stage 0${trackNumber}.mp3`);
+    audio.loop = true;
+    audio.volume = 0.6; // Adjust volume if needed
+    audio.play().catch(e => console.warn("Music autoplay blocked by browser:", e));
+  });
+
+  </script>
+</body>
+</html>

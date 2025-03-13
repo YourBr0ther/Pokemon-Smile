@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Pokédex</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='favicon.png') }}">
+</head>
+
+<body>
+    <div class="main-menu">
+        <h1 id="pokedexTitle" class="title">Select a Generation</h1>
+
+        <div id="pokedexContent">
+            <div class="gen-buttons" id="generationSelector"></div>
+        </div>
+
+        <a href="/" class="back-btn">← Back to Main Menu</a>
+    </div>
+    <audio id="pokedex-bgm" autoplay loop></audio>
+
+    <script>
+
+        const pokedexTracks = [
+            '/static/music/BGM Pokedex 01.mp3',
+            '/static/music/BGM Pokedex 02.mp3',
+            '/static/music/BGM Pokedex 03.mp3',
+            '/static/music/BGM Pokedex 04.mp3',
+            '/static/music/BGM Pokedex 05.mp3',
+            '/static/music/BGM Pokedex 06.mp3'
+        ];
+
+        function playRandomPokedexBGM() {
+            const track = pokedexTracks[Math.floor(Math.random() * pokedexTracks.length)];
+            const audio = document.getElementById('pokedex-bgm');
+            audio.src = track;
+            audio.play().catch(err => console.log("Audio autoplay was blocked:", err));
+        }
+
+        window.addEventListener('DOMContentLoaded', playRandomPokedexBGM);
+        const state = {
+            currentGen: null,
+            currentType: null,
+            caughtPokemon: JSON.parse(localStorage.getItem("caught_pokemon") || "[]")
+        };
+
+        const generationAliases = {
+            'i': '1', 'ii': '2', 'iii': '3', 'iv': '4', 'v': '5',
+            'vi': '6', 'vii': '7', 'viii': '8', 'ix': '9'
+        };
+
+        const generations = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+        const types = [
+            { name: "fire", label: "🔥 Fire" }, { name: "water", label: "💧 Water" },
+            { name: "grass", label: "🌿 Grass" }, { name: "electric", label: "⚡ Electric" },
+            { name: "psychic", label: "🔮 Psychic" }, { name: "flying", label: "🕊️ Flying" },
+            { name: "bug", label: "🐞 Bug" }, { name: "dark", label: "🌑 Dark" },
+            { name: "dragon", label: "🐉 Dragon" }, { name: "fairy", label: "🧚 Fairy" },
+            { name: "fighting", label: "🥊 Fighting" }, { name: "ghost", label: "👻 Ghost" },
+            { name: "ground", label: "🌍 Ground" }, { name: "ice", label: "❄️ Ice" },
+            { name: "normal", label: "⭕ Normal" }, { name: "poison", label: "☠️ Poison" },
+            { name: "rock", label: "🪨 Rock" }, { name: "steel", label: "⚙️ Steel" }
+        ];
+
+        function showGenerationSelector() {
+            state.currentGen = null;
+            state.currentType = null;
+            document.getElementById("pokedexTitle").textContent = "Select a Generation";
+            const container = document.getElementById("pokedexContent");
+            container.innerHTML = '<div class="gen-buttons" id="generationSelector"></div>';
+            const selector = document.getElementById("generationSelector");
+            generations.forEach(gen => {
+                const btn = document.createElement("a");
+                btn.href = "#";
+                btn.className = "gen-btn";
+                btn.textContent = `Gen ${gen}`;
+                btn.onclick = () => showTypeSelector(gen);
+                selector.appendChild(btn);
+            });
+        }
+
+        function showTypeSelector(gen) {
+            state.currentGen = gen;
+            state.currentType = null;
+            document.getElementById("pokedexTitle").textContent = `Gen ${gen} — Choose a Type`;
+            const container = document.getElementById("pokedexContent");
+            container.innerHTML = '<div class="type-buttons" id="typeSelector"></div>';
+            const selector = document.getElementById("typeSelector");
+            types.forEach(t => {
+                const btn = document.createElement("a");
+                btn.href = "#";
+                btn.className = "type-btn";
+                btn.textContent = t.label;
+                btn.onclick = () => showPokemonList(t.name);
+                selector.appendChild(btn);
+            });
+
+            const backBtn = document.createElement("a");
+            backBtn.href = "#";
+            backBtn.className = "back-btn";
+            backBtn.textContent = "← Back to Generations";
+            backBtn.onclick = showGenerationSelector;
+            container.appendChild(backBtn);
+        }
+
+        function showPokemonList(type) {
+            state.currentType = type;
+            const titleType = types.find(t => t.name === type)?.label || type;
+            document.getElementById("pokedexTitle").textContent = `${titleType} Pokémon - Gen ${state.currentGen}`;
+            const container = document.getElementById("pokedexContent");
+            container.innerHTML = '<div class="pokemon-grid" id="pokemonGrid"></div>';
+
+            const grid = document.getElementById("pokemonGrid");
+            const filtered = state.caughtPokemon.filter(p => {
+                const normGen = generationAliases[p.generation.toLowerCase()] || p.generation;
+                return normGen == state.currentGen && p.types.map(t => t.toLowerCase()).includes(type);
+            });
+
+            if (filtered.length === 0) {
+                grid.innerHTML = '<p>No Pokémon of this type caught yet!</p>';
+            } else {
+                filtered.forEach(p => {
+                    const card = document.createElement("div");
+                    card.className = "pokemon-card";
+                    card.innerHTML = `<img src="${p.sprite}" alt="${p.name}"><p>${p.name}</p>`;
+                    card.onclick = () => showPokemonPopup(p);
+                    grid.appendChild(card);
+                });
+            }
+
+            const backBtn = document.createElement("a");
+            backBtn.href = "#";
+            backBtn.className = "back-btn";
+            backBtn.textContent = `← Back to Types`;
+            backBtn.onclick = () => showTypeSelector(state.currentGen);
+            container.appendChild(backBtn);
+        }
+
+        function showPokemonPopup(pokemon) {
+            const overlay = document.createElement("div");
+            overlay.className = "popup-overlay";
+            overlay.style.display = "flex";
+            const popup = document.createElement("div");
+            popup.className = "popup-box";
+            popup.innerHTML = `
+        <h2>${pokemon.name}</h2>
+        <img src="${pokemon.sprite}" alt="${pokemon.name}">
+        <div>Types: ${pokemon.types.map(t => `<span class='type-badge'>${t}</span>`).join('')}</div>
+        <button onclick="this.closest('.popup-overlay').remove()">Close</button>
+    `;
+            overlay.appendChild(popup);
+            document.body.appendChild(overlay);
+        }
+
+
+        showGenerationSelector();
+    </script>
+</body>
+
+</html>
