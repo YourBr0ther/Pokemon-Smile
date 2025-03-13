@@ -80,5 +80,10 @@ def get_profiles():
     profiles = list(profiles_collection.find({}, {"_id": 0}))
     return jsonify(profiles)
 
+@app.route('/api/active_profile')
+def active_profile():
+    profile = profiles_collection.find_one({}, {"_id": 0})
+    return jsonify(profile or {})
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)

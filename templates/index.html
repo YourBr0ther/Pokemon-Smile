@@ -101,6 +101,54 @@
 
   <script>
 
+let activeProfile = null;
+
+async function loadActiveProfile() {
+  try {
+    const res = await fetch('/api/get_profiles');
+    const profiles = await res.json();
+    if (profiles.length > 0) {
+      activeProfile = profiles[0];
+      updateBuddyDisplay();
+      preloadSettings();
+    } else {
+      toggleProfilePopup();
+    }
+  } catch (err) {
+    console.error("Failed to fetch profiles:", err);
+    toggleProfilePopup();
+  }
+}
+
+function updateBuddyDisplay() {
+  if (activeProfile?.buddyPokemon) {
+    const img = document.getElementById("buddySprite");
+    const bubble = document.getElementById("buddyNameBubble");
+    img.src = activeProfile.buddyPokemon.sprite;
+    img.alt = activeProfile.buddyPokemon.name;
+    bubble.textContent = `Let's brush with ${activeProfile.buddyPokemon.name.charAt(0).toUpperCase() + activeProfile.buddyPokemon.name.slice(1)}!`;
+  }
+}
+
+function preloadSettings() {
+  if (!activeProfile) return;
+  document.getElementById("brushingDuration").value = activeProfile.brushingTime || 60;
+  document.getElementById("musicToggle").value = activeProfile.musicToggle || "on";
+  document.getElementById("musicTrack").value = activeProfile.preferredMusic || "random";
+}
+
+function saveSettingChanges() {
+  if (!activeProfile) return;
+  activeProfile.brushingTime = parseInt(document.getElementById("brushingDuration").value);
+  activeProfile.musicToggle = document.getElementById("musicToggle").value;
+  activeProfile.preferredMusic = document.getElementById("musicTrack").value;
+  fetch("/api/save_profile", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(activeProfile)
+  }).catch(err => console.error("Failed to save updated settings to MongoDB:", err));
+}
+
     const profileBtn = document.querySelector('.footer-btn.profile');
     const profilePopup = document.getElementById('profilePopup');
 
@@ -136,54 +184,7 @@
       }
     };
 
-    window.saveProfile = function () {
-      const kidName = document.getElementById('kidName').value.trim();
-      const pokemonName = document.getElementById('pokemonResult').dataset.pokemonName;
-      const pokemonSprite = document.getElementById('pokemonResult').dataset.pokemonSprite;
-
-      if (!kidName || !pokemonName) {
-        alert("Please enter a name and choose a Pokémon.");
-        return;
-      }
-
-      const profile = {
-        name: kidName,
-        buddyPokemon: {
-          name: pokemonName,
-          sprite: pokemonSprite
-        }
-      };
-
-      localStorage.setItem("activeProfile", JSON.stringify(profile));
-      closeProfilePopup();
-      updateBuddyDisplay();
-
-      fetch("/api/save_profile", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(profile)
-      })
-        .then(res => res.json())
-        .then(data => console.log("Saved to Mongo:", data))
-        .catch(err => console.error("Failed to save to Mongo:", err));
-
-      closeProfilePopup();
-      updateBuddyDisplay();
-
-      alert(`Profile for ${kidName} saved!`);
-    };
-
-    function updateBuddyDisplay() {
-      const profile = JSON.parse(localStorage.getItem("activeProfile"));
-      if (profile && profile.buddyPokemon) {
-        const img = document.getElementById("buddySprite");
-        const bubble = document.getElementById("buddyNameBubble");
-        img.src = profile.buddyPokemon.sprite;
-        img.alt = profile.buddyPokemon.name;
-        bubble.textContent = `Let's brush with ${profile.buddyPokemon.name.charAt(0).toUpperCase() + profile.buddyPokemon.name.slice(1)}!`;
-      }
-    }
-
+  
     // Set buddy on load
     updateBuddyDisplay();
 
@@ -198,12 +199,11 @@
     }
 
     function startMenuMusic() {
-      const musicSetting = localStorage.getItem("musicToggle") || "on";
-
+      
       // Prevent multiple tracks
       if (window.menuMusic && !window.menuMusic.paused) return;
 
-      if (musicSetting === "on") {
+      if (activeProfile?.musicToggle === "on") {
         const randomIndex = Math.floor(Math.random() * 5) + 1;
         const track = `/static/music/BGM Main 0${randomIndex}.mp3`;
 
@@ -223,35 +223,6 @@
         window.menuMusic = null;
       }
     }
-
-    // Start music automatically on load
-    window.addEventListener("DOMContentLoaded", async () => {
-      startMenuMusic();
-
-      const localProfile = localStorage.getItem("activeProfile");
-      if (localProfile) {
-        updateBuddyDisplay();
-        return;
-      }
-
-      try {
-        const response = await fetch("/api/get_profiles");
-        const profiles = await response.json();
-
-        if (profiles.length === 0) {
-          // No profiles found — prompt for profile creation
-          toggleProfilePopup();
-        } else {
-          // Load first profile automatically
-          const profile = profiles[0];
-          localStorage.setItem("activeProfile", JSON.stringify(profile));
-          updateBuddyDisplay();
-        }
-      } catch (err) {
-        console.error("Error checking profiles:", err);
-        toggleProfilePopup(); // fallback
-      }
-    });
 
     const brushingSelect = document.getElementById("brushingDuration");
     const musicToggle = document.getElementById("musicToggle");
@@ -276,14 +247,6 @@
       <option value="6">Track 6</option>
       <option value="7">Track 7</option>`;
 
-    brushingSelect.value = localStorage.getItem("brushingTime") || "60";
-    musicToggle.value = localStorage.getItem("musicToggle") || "on";
-    musicTrackSelect.value = localStorage.getItem("preferredMusic") || "random";
-
-    brushingSelect.addEventListener("change", () => localStorage.setItem("brushingTime", brushingSelect.value));
-    musicToggle.addEventListener("change", () => localStorage.setItem("musicToggle", musicToggle.value));
-    musicTrackSelect.addEventListener("change", () => localStorage.setItem("preferredMusic", musicTrackSelect.value));
-
     let correctAnswer;
     function showResetPopup() {
       const num1 = Math.floor(Math.random() * 20 + 10);
@@ -303,7 +266,7 @@
       const userAnswer = parseInt(document.getElementById("mathAnswer").value);
       const message = document.getElementById("resetMessage");
       if (userAnswer === correctAnswer) {
-        localStorage.removeItem("caught_pokemon");
+        
         message.textContent = "✅ Pokédex reset successfully!";
         message.style.color = "green";
       } else {
@@ -325,8 +288,6 @@
     function toggleProfilePopup() {
       const popup = document.getElementById("profilePopup");
       popup.style.display = popup.style.display === "flex" ? "none" : "flex";
-
-      // Show list of existing profiles
       fetch("/api/get_profiles")
         .then(res => res.json())
         .then(profiles => {
@@ -337,14 +298,54 @@
             btn.className = "popup-button";
             btn.textContent = `${p.name} (${p.buddyPokemon.name})`;
             btn.onclick = () => {
-              localStorage.setItem("activeProfile", JSON.stringify(p));
+              activeProfile = p;
               updateBuddyDisplay();
+              preloadSettings();
               closeProfilePopup();
             };
             resultBox.appendChild(btn);
           });
         });
     }
+
+    function closeProfilePopup() {
+      document.getElementById("profilePopup").style.display = "none";
+    }
+
+    window.saveProfile = function () {
+      const kidName = document.getElementById('kidName').value.trim();
+      const pokemonName = document.getElementById('pokemonResult').dataset.pokemonName;
+      const pokemonSprite = document.getElementById('pokemonResult').dataset.pokemonSprite;
+
+      if (!kidName || !pokemonName) {
+        alert("Please enter a name and choose a Pokémon.");
+        return;
+      }
+
+      const profile = {
+        name: kidName,
+        buddyPokemon: { name: pokemonName, sprite: pokemonSprite },
+        brushingTime: 60,
+        musicToggle: "on",
+        preferredMusic: "random",
+        caught_pokemon: []
+      };
+
+      fetch("/api/save_profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(profile)
+      })
+      .then(res => res.json())
+      .then(data => {
+        activeProfile = profile;
+        updateBuddyDisplay();
+        preloadSettings();
+        closeProfilePopup();
+        alert(`Profile for ${kidName} saved!`);
+      })
+      .catch(err => console.error("Failed to save to MongoDB:", err));
+    };
 
     const buddySprite = document.getElementById("buddySprite");
     const jumpSound = new Audio("/static/sfx/jump.mp3");
@@ -365,6 +366,11 @@
         buddySprite.classList.add("float");
       }, 500);
     });
+
+
+    document.getElementById("brushingDuration").addEventListener("change", saveSettingChanges);
+    document.getElementById("musicToggle").addEventListener("change", saveSettingChanges);
+    document.getElementById("musicTrack").addEventListener("change", saveSettingChanges);
 
   </script>
 </body>

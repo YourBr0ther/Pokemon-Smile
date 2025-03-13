@@ -4,7 +4,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Brushing Screen</title>
-  <script defer src="{{ url_for('static', filename='brushing.js') }}"></script>
   <link rel="stylesheet" href="{{ url_for('static', filename='brushing.css') }}">
   <link rel="icon" type="image/png" href="{{ url_for('static', filename='favicon.png') }}">
 </head>
@@ -37,51 +36,219 @@
   </div>
 
   <script>
+    document.addEventListener("DOMContentLoaded", async () => {
+      let countdown = 60;
+      let activeProfile = null;
 
-function startCamera() {
-  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-    console.error("Camera API not supported in this browser or insecure context.");
-    cameraPlaceholder.textContent = "Camera not supported or insecure context.";
-    return;
-  }
+      const timerElement = document.getElementById("timer");
+      const pauseButton = document.querySelector(".pause-btn");
+      const shadowPokemon = document.getElementById("shadowPokemon");
+      const shadowPokemonContainer = document.querySelector(".shadow-pokemon");
+      const cameraPlaceholder = document.querySelector(".camera-placeholder");
+      const buddySprite = document.getElementById("buddySprite");
 
-  const video = document.createElement("video");
-  video.setAttribute("autoplay", "");
-  video.setAttribute("playsinline", ""); // important for iOS
-  video.style.width = "100%";
-  video.style.height = "100%";
-  video.style.objectFit = "cover";
-  cameraPlaceholder.innerHTML = "";
-  cameraPlaceholder.appendChild(video);
+      let isPaused = false;
+      let mysteryPokemonName = "";
+      let mysteryPokemonTypes = [];
+      let mysteryPokemonGeneration = "";
 
-  navigator.mediaDevices.getUserMedia({ video: true })
-    .then((stream) => {
-      video.srcObject = stream;
-    })
-    .catch((err) => {
-      console.error("Camera access denied or failed:", err);
-      cameraPlaceholder.textContent = "Unable to access camera.";
+      const shadowRevealTimes = [45, 30, 15, 10, 5, 2];
+      const totalPokemon = 898;
+
+      async function loadActiveProfile() {
+        try {
+          const res = await fetch("/api/get_profiles");
+          const profiles = await res.json();
+          if (profiles.length > 0) {
+            activeProfile = profiles[0];
+            countdown = parseInt(activeProfile.brushingTime || 60);
+            if (activeProfile.buddyPokemon) {
+              buddySprite.src = activeProfile.buddyPokemon.sprite;
+              buddySprite.alt = activeProfile.buddyPokemon.name;
+            }
+          } else {
+            console.warn("No profile found");
+            countdown = 60;
+          }
+        } catch (err) {
+          console.error("Failed to load active profile:", err);
+        }
+      }
+
+      async function initBrushingApp() {
+        await loadActiveProfile();
+        timerElement.textContent = countdown;
+        startCamera();
+        startShadowPokemon();
+        startBrushingTimer();
+        playBackgroundMusic();
+      }
+
+      function startCamera() {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          cameraPlaceholder.textContent = "Camera not supported or insecure context.";
+          return;
+        }
+
+        const video = document.createElement("video");
+        video.setAttribute("autoplay", "");
+        video.setAttribute("playsinline", "");
+        video.style.width = "100%";
+        video.style.height = "100%";
+        video.style.objectFit = "cover";
+        cameraPlaceholder.innerHTML = "";
+        cameraPlaceholder.appendChild(video);
+
+        navigator.mediaDevices.getUserMedia({ video: true })
+          .then(stream => video.srcObject = stream)
+          .catch(err => {
+            console.error("Camera error:", err);
+            cameraPlaceholder.textContent = "Unable to access camera";
+          });
+      }
+
+      function startShadowPokemon() {
+        const randomId = Math.floor(Math.random() * totalPokemon) + 1;
+        const apiUrl = `https://pokeapi.co/api/v2/pokemon/${randomId}`;
+
+        fetch(apiUrl)
+          .then(res => res.json())
+          .then(data => {
+            const sprite = data.sprites.front_default;
+            const types = data.types.map(t => t.type.name);
+
+            fetch(data.species.url)
+              .then(resp => resp.json())
+              .then(speciesData => {
+                const generation = speciesData.generation.name.replace("generation-", "");
+                mysteryPokemonName = data.name;
+                mysteryPokemonTypes = types;
+                mysteryPokemonGeneration = generation;
+                shadowPokemon.src = sprite;
+                shadowPokemon.alt = "Mystery Pokémon";
+                const cameraBottom = cameraPlaceholder.offsetTop + cameraPlaceholder.offsetHeight;
+                shadowPokemonContainer.style.top = `${cameraBottom + 10}px`;
+                shadowPokemon.style.filter = "brightness(0.3) sepia(1) hue-rotate(270deg) saturate(3)";
+              });
+          })
+          .catch(err => console.error("Shadow Pokémon error:", err));
+      }
+
+      function startBrushingTimer() {
+        const interval = setInterval(() => {
+          if (isPaused) return;
+          countdown--;
+          timerElement.textContent = countdown;
+
+          if (shadowRevealTimes.includes(countdown)) {
+            let opacity = (60 - countdown) / 60 + 0.2;
+            shadowPokemonContainer.style.opacity = Math.min(opacity, 1);
+            let brightness = 0.3 + ((60 - countdown) / 60) * 0.7;
+            shadowPokemon.style.filter = `brightness(${Math.min(brightness, 1)})`;
+          }
+
+          if (countdown <= 0) {
+            clearInterval(interval);
+            shadowPokemonContainer.style.opacity = 1;
+            shadowPokemon.style.filter = "brightness(1)";
+            timerElement.textContent = "Done!";
+            setTimeout(startCaptureSequence, 1000);
+          }
+        }, 1000);
+      }
+
+      pauseButton.addEventListener("click", () => {
+        isPaused = !isPaused;
+        pauseButton.textContent = isPaused ? "▶️" : "⏸️";
+        document.querySelector(".buddy-pokemon").style.animationPlayState = isPaused ? "paused" : "running";
+      });
+
+      function startCaptureSequence() {
+        const buddy = document.querySelector(".buddy-pokemon");
+        if (buddy) buddy.style.display = "none";
+
+        const pokeball = document.createElement("img");
+        pokeball.src = "/static/images/pokeball.png";
+        pokeball.className = "pokeball";
+        pokeball.style.cssText = `position:absolute; bottom:100px; left:50%; transform:translateX(-50%); width:80px; cursor:pointer; z-index:6;`;
+
+        document.body.appendChild(pokeball);
+
+        pokeball.addEventListener("click", () => {
+          pokeball.style.transition = "all 0.5s ease";
+          pokeball.style.top = shadowPokemonContainer.style.top;
+          pokeball.style.bottom = "auto";
+          setTimeout(() => shadowPokemon.style.opacity = 0, 400);
+          setTimeout(() => {
+            pokeball.style.animation = "wiggle 0.4s ease-in-out 3 alternate";
+            setTimeout(() => {
+              pokeball.style.animation = "none";
+              saveCaughtPokemon();
+              if (!document.querySelector(".capture-popup")) showCapturePopup();
+            }, 1500);
+          }, 500);
+        });
+      }
+
+      function saveCaughtPokemon() {
+        if (!activeProfile?.name) {
+          console.warn("No active profile for saving Pokémon");
+          return;
+        }
+
+        const newPokemon = {
+          name: mysteryPokemonName,
+          sprite: shadowPokemon.src,
+          types: mysteryPokemonTypes,
+          generation: mysteryPokemonGeneration
+        };
+
+        fetch(`/api/save_pokemon/${activeProfile.name}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(newPokemon)
+        }).then(res => res.json())
+          .then(data => console.log("Saved Pokémon to MongoDB:", data))
+          .catch(err => console.error("Failed to save Pokémon:", err));
+      }
+
+      function showCapturePopup() {
+        const popup = document.createElement("div");
+        popup.className = "capture-popup";
+        popup.style.cssText = `position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); background:#fff; padding:30px; border-radius:20px; box-shadow:0 10px 20px rgba(0,0,0,0.2); z-index:9999; text-align:center;`;
+        popup.innerHTML = `
+          <h2>🎉 You caught ${mysteryPokemonName}!</h2>
+          <img src="${shadowPokemon.src}" alt="${mysteryPokemonName}" style="width: 100px; height: auto; image-rendering: pixelated;">
+          <p>Type: ${mysteryPokemonTypes.join(", ")}</p>
+          <p>Generation: ${mysteryPokemonGeneration}</p>
+          <button class="ok-btn" style="margin-top:20px; padding:10px 20px; font-size:16px; background:#ffcc00; border:none; border-radius:10px; cursor:pointer;">OK</button>
+        `;
+        document.body.appendChild(popup);
+        popup.querySelector(".ok-btn").addEventListener("click", () => window.location.href = "/");
+      }
+
+      function playBackgroundMusic() {
+        const musicCount = 7;
+        const trackNumber = Math.floor(Math.random() * musicCount) + 1;
+        const audio = new Audio(`/static/music/BGM Stage 0${trackNumber}.mp3`);
+        audio.loop = true;
+        audio.volume = 0.6;
+        audio.play().catch(e => console.warn("Music autoplay blocked:", e));
+      }
+
+      const wiggleStyle = document.createElement("style");
+      wiggleStyle.innerHTML = `
+        @keyframes wiggle {
+          0% { transform: translateX(-50%) rotate(0deg); }
+          25% { transform: translateX(-50%) rotate(-10deg); }
+          50% { transform: translateX(-50%) rotate(10deg); }
+          75% { transform: translateX(-50%) rotate(-10deg); }
+          100% { transform: translateX(-50%) rotate(0deg); }
+        }`;
+      document.head.appendChild(wiggleStyle);
+
+      initBrushingApp();
     });
-}
-
-document.addEventListener("DOMContentLoaded", () => {
-    // Existing buddy image setup
-    const profile = JSON.parse(localStorage.getItem("activeProfile"));
-    const buddyImg = document.getElementById("buddySprite");
-    if (profile && profile.buddyPokemon) {
-      buddyImg.src = profile.buddyPokemon.sprite;
-      buddyImg.alt = profile.buddyPokemon.name;
-    }
-
-    // 🎵 Random Brushing Music Setup
-    const musicCount = 7;
-    const trackNumber = Math.floor(Math.random() * musicCount) + 1;
-    const audio = new Audio(`/static/music/BGM Stage 0${trackNumber}.mp3`);
-    audio.loop = true;
-    audio.volume = 0.6; // Adjust volume if needed
-    audio.play().catch(e => console.warn("Music autoplay blocked by browser:", e));
-  });
-
   </script>
 </body>
 </html>

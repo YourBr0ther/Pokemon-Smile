@@ -11,18 +11,16 @@
 
 <body>
     <div class="main-menu">
-        <h1 id="pokedexTitle" class="title">Select a Generation</h1>
-
+        <h1 id="pokedexTitle" class="title">Loading Pokédex...</h1>
         <div id="pokedexContent">
-            <div class="gen-buttons" id="generationSelector"></div>
+            <p>Loading caught Pokémon...</p>
         </div>
-
         <a href="/" class="back-btn">← Back to Main Menu</a>
     </div>
+
     <audio id="pokedex-bgm" autoplay loop></audio>
 
     <script>
-
         const pokedexTracks = [
             '/static/music/BGM Pokedex 01.mp3',
             '/static/music/BGM Pokedex 02.mp3',
@@ -39,16 +37,10 @@
             audio.play().catch(err => console.log("Audio autoplay was blocked:", err));
         }
 
-        window.addEventListener('DOMContentLoaded', playRandomPokedexBGM);
         const state = {
             currentGen: null,
             currentType: null,
-            caughtPokemon: JSON.parse(localStorage.getItem("caught_pokemon") || "[]")
-        };
-
-        const generationAliases = {
-            'i': '1', 'ii': '2', 'iii': '3', 'iv': '4', 'v': '5',
-            'vi': '6', 'vii': '7', 'viii': '8', 'ix': '9'
+            caughtPokemon: []
         };
 
         const generations = [1, 2, 3, 4, 5, 6, 7, 8, 9];
@@ -58,11 +50,28 @@
             { name: "psychic", label: "🔮 Psychic" }, { name: "flying", label: "🕊️ Flying" },
             { name: "bug", label: "🐞 Bug" }, { name: "dark", label: "🌑 Dark" },
             { name: "dragon", label: "🐉 Dragon" }, { name: "fairy", label: "🧚 Fairy" },
-            { name: "fighting", label: "🥊 Fighting" }, { name: "ghost", label: "👻 Ghost" },
+            { name: "fighting", label: "🏋 Fighting" }, { name: "ghost", label: "👻 Ghost" },
             { name: "ground", label: "🌍 Ground" }, { name: "ice", label: "❄️ Ice" },
-            { name: "normal", label: "⭕ Normal" }, { name: "poison", label: "☠️ Poison" },
-            { name: "rock", label: "🪨 Rock" }, { name: "steel", label: "⚙️ Steel" }
+            { name: "normal", label: "⭕ Normal" }, { name: "poison", label: "☠ Poison" },
+            { name: "rock", label: "🪨 Rock" }, { name: "steel", label: "⚙ Steel" }
         ];
+
+        async function loadCaughtPokemon() {
+            try {
+                const profileRes = await fetch('/api/get_profiles');
+                const profiles = await profileRes.json();
+                if (profiles.length === 0) throw new Error("No profiles found");
+
+                const profileName = profiles[0].name;
+                const pokedexRes = await fetch(`/api/get_pokedex/${profileName}`);
+                state.caughtPokemon = await pokedexRes.json();
+
+                showGenerationSelector();
+            } catch (err) {
+                console.error("Failed to load Pokémon:", err);
+                document.getElementById("pokedexContent").innerHTML = '<p>Failed to load caught Pokémon.</p>';
+            }
+        }
 
         function showGenerationSelector() {
             state.currentGen = null;
@@ -114,8 +123,7 @@
 
             const grid = document.getElementById("pokemonGrid");
             const filtered = state.caughtPokemon.filter(p => {
-                const normGen = generationAliases[p.generation.toLowerCase()] || p.generation;
-                return normGen == state.currentGen && p.types.map(t => t.toLowerCase()).includes(type);
+                return parseInt(p.generation) === state.currentGen && p.types.map(t => t.toLowerCase()).includes(type);
             });
 
             if (filtered.length === 0) {
@@ -145,18 +153,19 @@
             const popup = document.createElement("div");
             popup.className = "popup-box";
             popup.innerHTML = `
-        <h2>${pokemon.name}</h2>
-        <img src="${pokemon.sprite}" alt="${pokemon.name}">
-        <div>Types: ${pokemon.types.map(t => `<span class='type-badge'>${t}</span>`).join('')}</div>
-        <button onclick="this.closest('.popup-overlay').remove()">Close</button>
-    `;
+                <h2>${pokemon.name}</h2>
+                <img src="${pokemon.sprite}" alt="${pokemon.name}">
+                <div>Types: ${pokemon.types.map(t => `<span class='type-badge'>${t}</span>`).join('')}</div>
+                <button onclick="this.closest('.popup-overlay').remove()">Close</button>
+            `;
             overlay.appendChild(popup);
             document.body.appendChild(overlay);
         }
 
-
-        showGenerationSelector();
+        window.addEventListener('DOMContentLoaded', () => {
+            playRandomPokedexBGM();
+            loadCaughtPokemon();
+        });
     </script>
 </body>
-
 </html>
