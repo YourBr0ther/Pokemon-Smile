@@ -4,53 +4,62 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Pokémon Smile - Main Menu</title>
+  <title>Pokémon Smile</title>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
   <link rel="icon" type="image/png" href="{{ url_for('static', filename='favicon.png') }}">
-  <meta name="theme-color" content="#ffcc70">
+  <meta name="theme-color" content="#4fd4e4">
 </head>
 
 <body>
-  <div class="main-menu">
-    <h1 class="title">Pokémon Smile</h1>
-
-    <div class="menu-buttons">
-      <a href="/brushing" class="menu-btn start">Start Brushing</a>
-      <a href="/pokedex" class="menu-btn pokedex">Pokédex</a>
-      <a class="menu-btn settings" onclick="toggleSettingsPopup()">Settings</a>
-
+  <!-- Top Navigation -->
+  <div class="top-nav">
+    <div class="back-arrow">
+      <img src="{{ url_for('static', filename='images/arrow-left.svg') }}" alt="Back">
     </div>
-
-    <div class="footer-buttons">
-      <button class="footer-btn profile" onclick="toggleProfilePopup()">Profile</button>
-      <button class="footer-btn music" onclick="toggleMenuMusic()">🎵</button>
-      <button class="footer-btn help" onclick="toggleHelpPopup()">Help</button>
+    <div class="menu-label">Main Menu</div>
+    <div style="width: 50px;"></div> <!-- Spacer for alignment -->
+  </div>
+  
+  <!-- Main Content -->
+  <div class="main-content">
+    <!-- Primary Action Button -->
+    <a href="/brushing" class="primary-action">Get Brushing!</a>
+    
+    <!-- Secondary Actions -->
+    <div class="secondary-actions">
+      <a href="/pokedex" class="secondary-action pokedex">
+        <img src="{{ url_for('static', filename='images/pokeball.svg') }}" alt="Pokédex">
+        <span>Pokédex</span>
+      </a>
+      <a href="#" class="secondary-action accessories" onclick="toggleSettingsPopup()">
+        <img src="{{ url_for('static', filename='images/pikachu-ears.svg') }}" alt="Hats">
+        <span>Hats</span>
+      </a>
+      <a href="/login" class="secondary-action login">
+        <img src="{{ url_for('static', filename='images/user.svg') }}" alt="Login">
+        <span>Login</span>
+      </a>
     </div>
   </div>
-
-  <div class="bottom-arc"></div>
+  
+  <!-- Bottom Wave and Character -->
+  <div class="bottom-wave"></div>
   <div class="bottom-pokemon">
     <div class="speech-bubble" id="buddyNameBubble">Let's brush!</div>
-    <img id="buddySprite" src="{{ sprite_url }}" alt="{{ pokemon_name }}">
+    <img id="buddySprite" src="{{ sprite_url }}" alt="{{ pokemon_name }}" class="float">
   </div>
-
-  <!-- Help Popup -->
-  <div class="popup-overlay" id="helpPopup" style="display:none;">
-    <div class="popup-box">
-      <h2>🦷 How Pokémon Smile Works</h2>
-      <p>Welcome! Here's how you can brush your teeth and catch Pokémon:</p>
-      <ul style="text-align:left; font-size:1rem; line-height:1.6;">
-        <li>✨ Choose a buddy Pokémon to brush with!</li>
-        <li>🪥 Start brushing and follow along while your buddy helps clean teeth.</li>
-        <li>⏱ A mystery Pokémon will appear as you brush—keep brushing to reveal it!</li>
-        <li>📸 The camera helps track your brushing (don't worry, nothing is saved).</li>
-        <li>🎯 At the end, try to catch the Pokémon you revealed!</li>
-        <li>📔 You’ll see your caught Pokémon in the Pokédex!</li>
-      </ul>
-      <button onclick="toggleHelpPopup()">Got it!</button>
-    </div>
-  </div>
-
+  
+  <!-- Settings Button -->
+  <button class="settings-btn" onclick="toggleSettingsPopup()">
+    <img src="{{ url_for('static', filename='images/gear.svg') }}" alt="Settings">
+  </button>
+  
+  <!-- Music Button -->
+  <button class="music-btn" onclick="toggleMenuMusic()">
+    🎵
+  </button>
+  
   <!-- Settings Popup -->
   <div class="popup-overlay" id="settingsPopup" style="display:none;">
     <div class="popup-box">
@@ -89,19 +98,41 @@
   <div class="popup-overlay" id="profilePopup" style="display:none;">
     <div class="popup-box">
       <h2>Create a Profile</h2>
-      <input type="text" id="kidName" placeholder="Your Name"><br><br>
+      <input type="text" id="kidName" placeholder="Your Name"><br>
+      <input type="password" id="password" placeholder="Create a Password"><br><br>
       <input type="text" id="pokemonSearch" placeholder="Buddy Pokémon Name">
       <button onclick="searchPokemon()">Search</button>
       <div id="pokemonResult" style="margin-top: 20px;"></div>
       <br>
       <button onclick="saveProfile()">OK</button>
       <button onclick="closeProfilePopup()">Cancel</button>
+      <hr>
+      <p>Already have a profile? <a href="/login">Login here</a></p>
+    </div>
+  </div>
+
+  <!-- Help Popup -->
+  <div class="popup-overlay" id="helpPopup" style="display:none;">
+    <div class="popup-box">
+      <h2>🦷 How Pokémon Smile Works</h2>
+      <p>Welcome! Here's how you can brush your teeth and catch Pokémon:</p>
+      <ul style="text-align:left; font-size:1rem; line-height:1.6;">
+        <li>✨ Choose a buddy Pokémon to brush with!</li>
+        <li>🪥 Start brushing and follow along while your buddy helps clean teeth.</li>
+        <li>⏱ A mystery Pokémon will appear as you brush—keep brushing to reveal it!</li>
+        <li>📸 The camera helps track your brushing (don't worry, nothing is saved).</li>
+        <li>🎯 At the end, try to catch the Pokémon you revealed!</li>
+        <li>📔 You'll see your caught Pokémon in the Pokédex!</li>
+      </ul>
+      <button onclick="toggleHelpPopup()">Got it!</button>
     </div>
   </div>
 
   <script>
 
 let activeProfile = null;
+let menuMusic = null;
+let isMusicPlaying = false;
 
 async function loadActiveProfile() {
   try {
@@ -132,21 +163,58 @@ function updateBuddyDisplay() {
 
 function preloadSettings() {
   if (!activeProfile) return;
-  document.getElementById("brushingDuration").value = activeProfile.brushingTime || 60;
-  document.getElementById("musicToggle").value = activeProfile.musicToggle || "on";
-  document.getElementById("musicTrack").value = activeProfile.preferredMusic || "random";
+  
+  // Set brushing duration
+  if (activeProfile.brushingTime) {
+    document.getElementById("brushingDuration").value = activeProfile.brushingTime;
+  }
+  
+  // Set music toggle
+  if (activeProfile.musicToggle) {
+    document.getElementById("musicToggle").value = activeProfile.musicToggle;
+    
+    // Auto-play music if set to "on"
+    if (activeProfile.musicToggle === "on" && !isMusicPlaying) {
+      setTimeout(() => toggleMenuMusic(), 1000);
+    }
+  }
+  
+  // Set preferred music
+  if (activeProfile.preferredMusic) {
+    document.getElementById("musicTrack").value = activeProfile.preferredMusic;
+  }
 }
 
 function saveSettingChanges() {
   if (!activeProfile) return;
-  activeProfile.brushingTime = parseInt(document.getElementById("brushingDuration").value);
-  activeProfile.musicToggle = document.getElementById("musicToggle").value;
-  activeProfile.preferredMusic = document.getElementById("musicTrack").value;
+  
+  const brushingTime = document.getElementById("brushingDuration").value;
+  const musicToggle = document.getElementById("musicToggle").value;
+  const musicTrack = document.getElementById("musicTrack").value;
+  
+  console.log(`Saving settings: brushingTime=${brushingTime}, musicToggle=${musicToggle}, musicTrack=${musicTrack}`);
+  
+  // Update active profile
+  activeProfile.brushingTime = brushingTime;
+  activeProfile.musicToggle = musicToggle;
+  activeProfile.preferredMusic = musicTrack;
+  
+  // Save to server
   fetch("/api/save_profile", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(activeProfile)
-  }).catch(err => console.error("Failed to save updated settings to MongoDB:", err));
+  })
+  .then(res => {
+    if (!res.ok) throw new Error("Failed to save settings");
+    return res.json();
+  })
+  .then(data => {
+    console.log("Settings saved successfully:", data);
+  })
+  .catch(err => {
+    console.error("Error saving settings:", err);
+  });
 }
 
     const profileBtn = document.querySelector('.footer-btn.profile');
@@ -165,22 +233,35 @@ function saveSettingChanges() {
 
     window.searchPokemon = async function () {
       const name = document.getElementById('pokemonSearch').value.trim().toLowerCase();
-      if (!name) return;
+      if (!name) {
+        alert("Please enter a Pokémon name to search");
+        return;
+      }
 
-      const response = await fetch(`https://pokeapi.co/api/v2/pokemon/${name}`);
-      const resultBox = document.getElementById('pokemonResult');
-
-      if (response.ok) {
-        const data = await response.json();
-        const sprite = data.sprites.front_default;
-        resultBox.innerHTML = `
+      try {
+        const response = await fetch(`https://pokeapi.co/api/v2/pokemon/${name}`);
+        const resultBox = document.getElementById('pokemonResult');
+        
+        if (response.ok) {
+          const data = await response.json();
+          const sprite = data.sprites.front_default;
+          resultBox.innerHTML = `
             <h3>${data.name.toUpperCase()}</h3>
             <img src="${sprite}" alt="${data.name}" style="width: 120px;">
           `;
-        resultBox.dataset.pokemonName = data.name;
-        resultBox.dataset.pokemonSprite = sprite;
-      } else {
-        resultBox.innerHTML = `<p>Couldn't find that Pokémon.</p>`;
+          // Set the data attributes explicitly
+          resultBox.dataset.pokemonName = data.name;
+          resultBox.dataset.pokemonSprite = sprite;
+          console.log("Pokémon selected:", { name: data.name, sprite });
+        } else {
+          resultBox.innerHTML = `<p>Couldn't find that Pokémon. Please check the spelling.</p>`;
+          // Clear any previous data attributes
+          delete resultBox.dataset.pokemonName;
+          delete resultBox.dataset.pokemonSprite;
+        }
+      } catch (err) {
+        console.error("Error searching for Pokémon:", err);
+        document.getElementById('pokemonResult').innerHTML = `<p>Error searching for Pokémon. Please try again.</p>`;
       }
     };
 
@@ -189,63 +270,186 @@ function saveSettingChanges() {
     updateBuddyDisplay();
 
     function toggleMenuMusic() {
-      if (window.menuMusic && !window.menuMusic.paused) {
-        window.menuMusic.pause();
-      } else if (window.menuMusic) {
-        window.menuMusic.play();
-      } else {
-        startMenuMusic(); // fallback if not initialized yet
-      }
-    }
-
-    function startMenuMusic() {
+      const musicBtn = document.querySelector('.music-btn');
       
-      // Prevent multiple tracks
-      if (window.menuMusic && !window.menuMusic.paused) return;
-
-      if (activeProfile?.musicToggle === "on") {
-        const randomIndex = Math.floor(Math.random() * 5) + 1;
-        const track = `/static/music/BGM Main 0${randomIndex}.mp3`;
-
-        window.menuMusic = new Audio(track);
-        window.menuMusic.loop = true;
-        window.menuMusic.volume = 0.5;
-
-        window.menuMusic.play().catch(() => {
-          document.body.addEventListener("click", () => window.menuMusic.play().catch(() => { }), { once: true });
-        });
+      if (!menuMusic) {
+        // Initialize music if it doesn't exist
+        menuMusic = new Audio();
+        menuMusic.loop = true;
+        menuMusic.volume = 0.6;
+        
+        // Choose a random track
+        const tracks = [
+          '/static/music/BGM Menu 01.mp3',
+          '/static/music/BGM Menu 02.mp3',
+          '/static/music/BGM Menu 03.mp3',
+          '/static/music/BGM Menu 04.mp3'
+        ];
+        menuMusic.src = tracks[Math.floor(Math.random() * tracks.length)];
+      }
+      
+      if (isMusicPlaying) {
+        // Pause music
+        menuMusic.pause();
+        musicBtn.textContent = '🔇';
+        isMusicPlaying = false;
+      } else {
+        // Play music without alert
+        menuMusic.play()
+          .then(() => {
+            musicBtn.textContent = '🔊';
+            isMusicPlaying = true;
+          })
+          .catch(err => {
+            console.warn("Music autoplay blocked:", err);
+            // Just update the icon, no alert
+            musicBtn.textContent = '🔇';
+          });
+      }
+      
+      // Save music preference if logged in
+      if (activeProfile) {
+        activeProfile.musicToggle = isMusicPlaying ? "on" : "off";
+        saveSettingChanges();
       }
     }
 
-    function stopMenuMusic() {
-      if (window.menuMusic) {
-        window.menuMusic.pause();
-        window.menuMusic = null;
+    // Add this function to initialize the music when the page loads
+    function initializeMusic() {
+      const musicBtn = document.querySelector('.music-btn');
+      musicBtn.textContent = isMusicPlaying ? '🔊' : '🔇';
+      
+      // Try to autoplay music if user preference is set
+      if (activeProfile && activeProfile.musicToggle === "on") {
+        setTimeout(() => {
+          toggleMenuMusic();
+        }, 1000);
       }
     }
 
-    const brushingSelect = document.getElementById("brushingDuration");
-    const musicToggle = document.getElementById("musicToggle");
-    const musicTrackSelect = document.getElementById("musicTrack");
-
-    brushingSelect.innerHTML = `
-      <option value="60">1 minute</option>
-      <option value="120">2 minutes</option>
-      <option value="180">3 minutes</option>`;
-
-    musicToggle.innerHTML = `
-      <option value="on">On</option>
-      <option value="off">Off</option>`;
-
-    musicTrackSelect.innerHTML = `
-      <option value="random">Random</option>
-      <option value="1">Track 1</option>
-      <option value="2">Track 2</option>
-      <option value="3">Track 3</option>
-      <option value="4">Track 4</option>
-      <option value="5">Track 5</option>
-      <option value="6">Track 6</option>
-      <option value="7">Track 7</option>`;
+    // Update the document ready function
+    document.addEventListener('DOMContentLoaded', function() {
+      loadActiveProfile().then(() => {
+        initializeMusic();
+        initializeSettingsForm();
+      });
+      
+      // Add event listeners for settings changes
+      document.getElementById("brushingDuration").addEventListener("change", saveSettingChanges);
+      document.getElementById("musicToggle").addEventListener("change", function() {
+        // Update music state based on toggle
+        const shouldPlayMusic = this.value === "on";
+        if (shouldPlayMusic !== isMusicPlaying) {
+          toggleMenuMusic();
+        }
+        saveSettingChanges();
+      });
+      document.getElementById("musicTrack").addEventListener("change", saveSettingChanges);
+      
+      // Debug the buddy Pokémon
+      const buddySprite = document.getElementById("buddySprite");
+      console.log("Buddy sprite element:", buddySprite);
+      console.log("Buddy sprite src:", buddySprite.src);
+      console.log("Buddy sprite display:", window.getComputedStyle(buddySprite).display);
+      console.log("Buddy sprite visibility:", window.getComputedStyle(buddySprite).visibility);
+      console.log("Buddy sprite z-index:", window.getComputedStyle(buddySprite).zIndex);
+      
+      // Force visibility
+      buddySprite.style.display = "block";
+      buddySprite.style.visibility = "visible";
+      buddySprite.style.opacity = "1";
+      
+      // Add a border for debugging
+      buddySprite.style.border = "2px solid red";
+      
+      // Fix layout issues with buddy Pokémon
+      async function fixLayout() {
+        const buddySprite = document.getElementById('buddySprite');
+        const buddyNameBubble = document.getElementById('buddyNameBubble');
+        const bottomPokemon = document.querySelector('.bottom-pokemon');
+        
+        // First, make sure the container is properly positioned
+        bottomPokemon.style.position = 'fixed';
+        bottomPokemon.style.bottom = '60px';
+        bottomPokemon.style.left = '50%';
+        bottomPokemon.style.transform = 'translateX(-50%)';
+        bottomPokemon.style.zIndex = '50';
+        bottomPokemon.style.width = '250px';
+        bottomPokemon.style.height = '250px';
+        bottomPokemon.style.display = 'flex';
+        bottomPokemon.style.flexDirection = 'column';
+        bottomPokemon.style.alignItems = 'center'; // Center horizontally
+        bottomPokemon.style.justifyContent = 'flex-end'; // Align to bottom
+        
+        // Position the speech bubble
+        buddyNameBubble.style.position = 'absolute';
+        buddyNameBubble.style.top = '0';
+        buddyNameBubble.style.left = '50%';
+        buddyNameBubble.style.transform = 'translateX(-50%)';
+        buddyNameBubble.style.marginBottom = '0';
+        buddyNameBubble.style.zIndex = '51';
+        buddyNameBubble.style.whiteSpace = 'nowrap';
+        
+        // Add speech bubble arrow
+        if (!buddyNameBubble.dataset.arrowAdded) {
+          buddyNameBubble.style.position = 'relative';
+          
+          // Create after pseudo-element for white arrow
+          const style = document.createElement('style');
+          style.textContent = `
+            #buddyNameBubble:after {
+              content: '';
+              position: absolute;
+              bottom: -15px;
+              left: 50%;
+              transform: translateX(-50%);
+              border-width: 15px 15px 0;
+              border-style: solid;
+              border-color: white transparent transparent;
+              z-index: 1;
+            }
+            
+            #buddyNameBubble:before {
+              content: '';
+              position: absolute;
+              bottom: -20px;
+              left: 50%;
+              transform: translateX(-50%);
+              border-width: 18px 18px 0;
+              border-style: solid;
+              border-color: #333 transparent transparent;
+              z-index: 0;
+            }
+          `;
+          document.head.appendChild(style);
+          buddyNameBubble.dataset.arrowAdded = 'true';
+        }
+        
+        // Position the buddy sprite
+        buddySprite.style.position = 'static'; // Changed from relative to static
+        buddySprite.style.margin = '0 auto'; // Center horizontally
+        buddySprite.style.display = 'block'; // Ensure block display
+        buddySprite.style.zIndex = '52';
+        buddySprite.style.width = '180px';
+        buddySprite.style.height = '180px';
+        buddySprite.style.marginTop = '20px';
+        
+        // Remove any transforms that might be affecting centering
+        buddySprite.style.transform = 'none';
+        buddySprite.style.left = 'auto';
+        buddySprite.style.right = 'auto';
+        
+        // Add animation class
+        if (!buddySprite.classList.contains('float')) {
+          buddySprite.classList.add('float');
+        }
+        
+        console.log('Layout fixed for buddy Pokémon');
+      }
+      
+      // Run the layout fix after a short delay to ensure all elements are loaded
+      setTimeout(fixLayout, 500);
+    });
 
     let correctAnswer;
     function showResetPopup() {
@@ -265,10 +469,35 @@ function saveSettingChanges() {
     function attemptReset() {
       const userAnswer = parseInt(document.getElementById("mathAnswer").value);
       const message = document.getElementById("resetMessage");
+      
       if (userAnswer === correctAnswer) {
-        
-        message.textContent = "✅ Pokédex reset successfully!";
-        message.style.color = "green";
+        // Reset the Pokédex
+        if (activeProfile) {
+          activeProfile.caught_pokemon = [];
+          
+          fetch("/api/save_profile", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(activeProfile)
+          })
+          .then(res => {
+            if (!res.ok) throw new Error("Failed to reset Pokédex");
+            return res.json();
+          })
+          .then(data => {
+            message.textContent = "✅ Pokédex reset successfully!";
+            message.style.color = "green";
+            setTimeout(closeResetPopup, 2000);
+          })
+          .catch(err => {
+            console.error("Error resetting Pokédex:", err);
+            message.textContent = "❌ Error resetting Pokédex. Please try again.";
+            message.style.color = "red";
+          });
+        } else {
+          message.textContent = "❌ No active profile found.";
+          message.style.color = "red";
+        }
       } else {
         message.textContent = "❌ Incorrect answer. Try again!";
         message.style.color = "red";
@@ -278,6 +507,11 @@ function saveSettingChanges() {
     function toggleSettingsPopup() {
       const popup = document.getElementById("settingsPopup");
       popup.style.display = popup.style.display === "flex" ? "none" : "flex";
+      
+      // Initialize settings form if it's being opened
+      if (popup.style.display === "flex") {
+        initializeSettingsForm();
+      }
     }
 
     function toggleHelpPopup() {
@@ -314,16 +548,28 @@ function saveSettingChanges() {
 
     window.saveProfile = function () {
       const kidName = document.getElementById('kidName').value.trim();
-      const pokemonName = document.getElementById('pokemonResult').dataset.pokemonName;
-      const pokemonSprite = document.getElementById('pokemonResult').dataset.pokemonSprite;
+      const password = document.getElementById('password').value.trim();
+      const resultBox = document.getElementById('pokemonResult');
+      
+      // Check if pokemonResult has the necessary data attributes
+      if (!resultBox.dataset.pokemonName || !resultBox.dataset.pokemonSprite) {
+        alert("Please search and select a Pokémon first!");
+        return;
+      }
+      
+      const pokemonName = resultBox.dataset.pokemonName;
+      const pokemonSprite = resultBox.dataset.pokemonSprite;
 
-      if (!kidName || !pokemonName) {
-        alert("Please enter a name and choose a Pokémon.");
+      if (!kidName || !pokemonName || !password) {
+        alert("Please enter a name, password, and choose a Pokémon.");
         return;
       }
 
+      console.log("Creating profile with:", { kidName, pokemonName, hasPassword: !!password });
+
       const profile = {
         name: kidName,
+        password: password,
         buddyPokemon: { name: pokemonName, sprite: pokemonSprite },
         brushingTime: 60,
         musicToggle: "on",
@@ -336,15 +582,26 @@ function saveSettingChanges() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(profile)
       })
-      .then(res => res.json())
+      .then(res => {
+        if (!res.ok) {
+          throw new Error(`Server responded with status: ${res.status}`);
+        }
+        return res.json();
+      })
       .then(data => {
+        console.log("Profile saved successfully:", data);
         activeProfile = profile;
         updateBuddyDisplay();
         preloadSettings();
         closeProfilePopup();
-        alert(`Profile for ${kidName} saved!`);
+        alert(`Profile for ${kidName} saved! You can now log in from any device.`);
+        // Reload the page to reflect the logged-in state
+        window.location.reload();
       })
-      .catch(err => console.error("Failed to save to MongoDB:", err));
+      .catch(err => {
+        console.error("Failed to save profile:", err);
+        alert("There was a problem saving your profile. Please try again.");
+      });
     };
 
     const buddySprite = document.getElementById("buddySprite");
@@ -367,10 +624,44 @@ function saveSettingChanges() {
       }, 500);
     });
 
-
-    document.getElementById("brushingDuration").addEventListener("change", saveSettingChanges);
-    document.getElementById("musicToggle").addEventListener("change", saveSettingChanges);
-    document.getElementById("musicTrack").addEventListener("change", saveSettingChanges);
+    // Initialize the settings form elements
+    function initializeSettingsForm() {
+      const brushingSelect = document.getElementById("brushingDuration");
+      const musicToggle = document.getElementById("musicToggle");
+      const musicTrackSelect = document.getElementById("musicTrack");
+      
+      // Set up brushing duration options
+      brushingSelect.innerHTML = `
+        <option value="60">1 minute</option>
+        <option value="120">2 minutes</option>
+        <option value="180">3 minutes</option>
+      `;
+      
+      // Set up music toggle options
+      musicToggle.innerHTML = `
+        <option value="on">On</option>
+        <option value="off">Off</option>
+      `;
+      
+      // Set up music track options
+      musicTrackSelect.innerHTML = `
+        <option value="random">Random</option>
+        <option value="1">Track 1</option>
+        <option value="2">Track 2</option>
+        <option value="3">Track 3</option>
+        <option value="4">Track 4</option>
+        <option value="5">Track 5</option>
+        <option value="6">Track 6</option>
+        <option value="7">Track 7</option>
+      `;
+      
+      // Load user preferences if available
+      if (activeProfile) {
+        brushingSelect.value = activeProfile.brushingTime || "60";
+        musicToggle.value = activeProfile.musicToggle || "on";
+        musicTrackSelect.value = activeProfile.preferredMusic || "random";
+      }
+    }
 
   </script>
 </body>

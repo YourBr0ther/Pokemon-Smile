@@ -3,169 +3,522 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Pokédex</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pokédex - Pokémon Smile</title>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='favicon.png') }}">
+    <meta name="theme-color" content="#4fd4e4">
 </head>
 
-<body>
-    <div class="main-menu">
-        <h1 id="pokedexTitle" class="title">Loading Pokédex...</h1>
-        <div id="pokedexContent">
-            <p>Loading caught Pokémon...</p>
+<body class="pokedex-page">
+    <!-- Top Navigation -->
+    <div class="top-nav">
+        <a href="/" class="back-arrow">
+            <img src="{{ url_for('static', filename='images/arrow-left.svg') }}" alt="Back">
+        </a>
+        <div class="menu-label">Pokédex</div>
+        <div style="width: 50px;"></div> <!-- Spacer for alignment -->
+    </div>
+    
+    <!-- Pokédex Content -->
+    <div class="pokedex-container">
+        <!-- Search Bar -->
+        <div class="search-container">
+            <input type="text" id="pokemonSearch" class="search-input" placeholder="Search Pokémon...">
+            <button id="searchButton" class="search-button">🔍</button>
         </div>
-        <a href="/" class="back-btn">← Back to Main Menu</a>
+        
+        <!-- Pokémon Count -->
+        <div class="pokemon-count">
+            <div class="count-badge">
+                <svg class="count-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="12" cy="12" r="11" fill="white" stroke="#333" stroke-width="2"/>
+                    <circle cx="12" cy="12" r="4" fill="#FF6B6B" stroke="#333" stroke-width="2"/>
+                    <line x1="1" y1="12" x2="7" y2="12" stroke="#333" stroke-width="2"/>
+                    <line x1="17" y1="12" x2="23" y2="12" stroke="#333" stroke-width="2"/>
+                </svg>
+                <span id="caughtCount">0</span> Pokémon Caught
+            </div>
+        </div>
+        
+        <!-- Pokémon List -->
+        <div class="pokemon-list" id="pokemonList">
+            <div class="loading-spinner">
+                <div class="spinner"></div>
+                <p>Loading your Pokémon...</p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Bottom Wave -->
+    <div class="bottom-wave"></div>
+    
+    <!-- Pokémon Detail Popup -->
+    <div class="popup-overlay" id="pokemonDetailPopup" style="display:none;">
+        <div class="popup-box pokemon-details">
+            <h2 id="pokemonDetailName">Pokémon Name</h2>
+            
+            <div class="pokemon-detail-image">
+                <img id="pokemonDetailImage" src="" alt="Pokémon">
+            </div>
+            
+            <div class="pokemon-detail-types" id="pokemonDetailTypes">
+                <!-- Types will be inserted here -->
+            </div>
+            
+            <div class="pokemon-detail-info">
+                <div class="pokemon-generation" id="pokemonGeneration"></div>
+                <div class="pokemon-description" id="pokemonDescription"></div>
+            </div>
+            
+            <div class="pokemon-cry">
+                <button class="cry-btn" id="cryButton">
+                    <span class="sound-icon">🔊</span> Play Cry
+                </button>
+            </div>
+            
+            <button class="popup-button back-btn" onclick="closeDetailPopup()">Close</button>
+        </div>
     </div>
 
-    <audio id="pokedex-bgm" autoplay loop></audio>
+    <!-- Music Button -->
+    <button class="music-btn" onclick="togglePokedexMusic()">
+        🎵
+    </button>
 
     <script>
-        const pokedexTracks = [
-            '/static/music/BGM Pokedex 01.mp3',
-            '/static/music/BGM Pokedex 02.mp3',
-            '/static/music/BGM Pokedex 03.mp3',
-            '/static/music/BGM Pokedex 04.mp3',
-            '/static/music/BGM Pokedex 05.mp3',
-            '/static/music/BGM Pokedex 06.mp3'
-        ];
-
-        function playRandomPokedexBGM() {
-            const track = pokedexTracks[Math.floor(Math.random() * pokedexTracks.length)];
-            const audio = document.getElementById('pokedex-bgm');
-            audio.src = track;
-            audio.play().catch(err => console.log("Audio autoplay was blocked:", err));
-        }
-
-        const state = {
-            currentGen: null,
-            currentType: null,
-            caughtPokemon: []
-        };
-
-        const generations = [1, 2, 3, 4, 5, 6, 7, 8, 9];
-        const types = [
-            { name: "fire", label: "🔥 Fire" }, { name: "water", label: "💧 Water" },
-            { name: "grass", label: "🌿 Grass" }, { name: "electric", label: "⚡ Electric" },
-            { name: "psychic", label: "🔮 Psychic" }, { name: "flying", label: "🕊️ Flying" },
-            { name: "bug", label: "🐞 Bug" }, { name: "dark", label: "🌑 Dark" },
-            { name: "dragon", label: "🐉 Dragon" }, { name: "fairy", label: "🧚 Fairy" },
-            { name: "fighting", label: "🏋 Fighting" }, { name: "ghost", label: "👻 Ghost" },
-            { name: "ground", label: "🌍 Ground" }, { name: "ice", label: "❄️ Ice" },
-            { name: "normal", label: "⭕ Normal" }, { name: "poison", label: "☠ Poison" },
-            { name: "rock", label: "🪨 Rock" }, { name: "steel", label: "⚙ Steel" }
-        ];
-
-        async function loadCaughtPokemon() {
-            try {
-                const profileRes = await fetch('/api/get_profiles');
-                const profiles = await profileRes.json();
-                if (profiles.length === 0) throw new Error("No profiles found");
-
-                const profileName = profiles[0].name;
-                const pokedexRes = await fetch(`/api/get_pokedex/${profileName}`);
-                state.caughtPokemon = await pokedexRes.json();
-
-                showGenerationSelector();
-            } catch (err) {
-                console.error("Failed to load Pokémon:", err);
-                document.getElementById("pokedexContent").innerHTML = '<p>Failed to load caught Pokémon.</p>';
-            }
-        }
-
-        function showGenerationSelector() {
-            state.currentGen = null;
-            state.currentType = null;
-            document.getElementById("pokedexTitle").textContent = "Select a Generation";
-            const container = document.getElementById("pokedexContent");
-            container.innerHTML = '<div class="gen-buttons" id="generationSelector"></div>';
-            const selector = document.getElementById("generationSelector");
-            generations.forEach(gen => {
-                const btn = document.createElement("a");
-                btn.href = "#";
-                btn.className = "gen-btn";
-                btn.textContent = `Gen ${gen}`;
-                btn.onclick = () => showTypeSelector(gen);
-                selector.appendChild(btn);
+        let caughtPokemon = [];
+        let allPokemon = [];
+        let pokedexMusic = null;
+        let isMusicPlaying = false;
+        
+        // Load Pokémon data when the page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            loadPokedexData();
+            initializeMusic();
+            
+            // Add search functionality
+            document.getElementById('searchButton').addEventListener('click', searchPokemon);
+            document.getElementById('pokemonSearch').addEventListener('keyup', function(event) {
+                if (event.key === 'Enter') {
+                    searchPokemon();
+                }
             });
-        }
-
-        function showTypeSelector(gen) {
-            state.currentGen = gen;
-            state.currentType = null;
-            document.getElementById("pokedexTitle").textContent = `Gen ${gen} — Choose a Type`;
-            const container = document.getElementById("pokedexContent");
-            container.innerHTML = '<div class="type-buttons" id="typeSelector"></div>';
-            const selector = document.getElementById("typeSelector");
-            types.forEach(t => {
-                const btn = document.createElement("a");
-                btn.href = "#";
-                btn.className = "type-btn";
-                btn.textContent = t.label;
-                btn.onclick = () => showPokemonList(t.name);
-                selector.appendChild(btn);
-            });
-
-            const backBtn = document.createElement("a");
-            backBtn.href = "#";
-            backBtn.className = "back-btn";
-            backBtn.textContent = "← Back to Generations";
-            backBtn.onclick = showGenerationSelector;
-            container.appendChild(backBtn);
-        }
-
-        function showPokemonList(type) {
-            state.currentType = type;
-            const titleType = types.find(t => t.name === type)?.label || type;
-            document.getElementById("pokedexTitle").textContent = `${titleType} Pokémon - Gen ${state.currentGen}`;
-            const container = document.getElementById("pokedexContent");
-            container.innerHTML = '<div class="pokemon-grid" id="pokemonGrid"></div>';
-
-            const grid = document.getElementById("pokemonGrid");
-            const filtered = state.caughtPokemon.filter(p => {
-                return parseInt(p.generation) === state.currentGen && p.types.map(t => t.toLowerCase()).includes(type);
-            });
-
-            if (filtered.length === 0) {
-                grid.innerHTML = '<p>No Pokémon of this type caught yet!</p>';
-            } else {
-                filtered.forEach(p => {
-                    const card = document.createElement("div");
-                    card.className = "pokemon-card";
-                    card.innerHTML = `<img src="${p.sprite}" alt="${p.name}"><p>${p.name}</p>`;
-                    card.onclick = () => showPokemonPopup(p);
-                    grid.appendChild(card);
-                });
-            }
-
-            const backBtn = document.createElement("a");
-            backBtn.href = "#";
-            backBtn.className = "back-btn";
-            backBtn.textContent = `← Back to Types`;
-            backBtn.onclick = () => showTypeSelector(state.currentGen);
-            container.appendChild(backBtn);
-        }
-
-        function showPokemonPopup(pokemon) {
-            const overlay = document.createElement("div");
-            overlay.className = "popup-overlay";
-            overlay.style.display = "flex";
-            const popup = document.createElement("div");
-            popup.className = "popup-box";
-            popup.innerHTML = `
-                <h2>${pokemon.name}</h2>
-                <img src="${pokemon.sprite}" alt="${pokemon.name}">
-                <div>Types: ${pokemon.types.map(t => `<span class='type-badge'>${t}</span>`).join('')}</div>
-                <button onclick="this.closest('.popup-overlay').remove()">Close</button>
-            `;
-            overlay.appendChild(popup);
-            document.body.appendChild(overlay);
-        }
-
-        window.addEventListener('DOMContentLoaded', () => {
-            playRandomPokedexBGM();
-            loadCaughtPokemon();
+            
+            // Device detection
+            detectDevice();
+            window.addEventListener('resize', detectDevice);
         });
+        
+        async function loadPokedexData() {
+            try {
+                console.log("Starting to load Pokédex data...");
+                
+                // Show loading state
+                const listElement = document.getElementById('pokemonList');
+                listElement.innerHTML = `
+                    <div class="loading-spinner">
+                        <div class="spinner"></div>
+                        <p>Loading your Pokémon...</p>
+                    </div>
+                `;
+                
+                // Fetch the user's caught Pokémon from the dedicated endpoint
+                console.log("Fetching user's Pokédex data...");
+                const userPokedexRes = await fetch('/api/user_pokedex');
+                if (!userPokedexRes.ok) {
+                    throw new Error(`Failed to fetch user Pokédex: ${userPokedexRes.status} ${userPokedexRes.statusText}`);
+                }
+                
+                const caughtPokemonIds = await userPokedexRes.json();
+                console.log("User's caught Pokémon IDs:", caughtPokemonIds);
+                
+                if (!caughtPokemonIds.length) {
+                    // Show empty state if no Pokémon caught
+                    listElement.innerHTML = `
+                        <div class="empty-pokedex">
+                            <img src="/static/images/professor-oak.png" alt="Professor Oak" class="professor-image">
+                            <div class="message-bubble">
+                                <p>You haven't caught any Pokémon yet!</p>
+                                <p>Brush your teeth to catch Pokémon and fill your Pokédex.</p>
+                            </div>
+                        </div>
+                    `;
+                    
+                    // Update the count display
+                    document.getElementById('caughtCount').textContent = '0';
+                    return;
+                }
+                
+                // Fetch details for each caught Pokémon
+                console.log("Fetching details for caught Pokémon...");
+                const caughtPokemonDetails = [];
+                
+                for (const pokemonId of caughtPokemonIds) {
+                    try {
+                        const response = await fetch(`/api/pokemon/${pokemonId}`);
+                        if (response.ok) {
+                            const pokemonData = await response.json();
+                            caughtPokemonDetails.push(pokemonData);
+                        }
+                    } catch (error) {
+                        console.error(`Error fetching details for Pokémon #${pokemonId}:`, error);
+                    }
+                }
+                
+                console.log(`Fetched details for ${caughtPokemonDetails.length} Pokémon`);
+                
+                // Update the count display
+                document.getElementById('caughtCount').textContent = caughtPokemonDetails.length;
+                
+                // Render the Pokémon list
+                renderPokemonList(caughtPokemonDetails);
+                
+                // Debug function
+                debugPokemonDisplay();
+            } catch (error) {
+                console.error('Error loading Pokédex data:', error);
+                
+                // Show error message to user
+                const listElement = document.getElementById('pokemonList');
+                listElement.innerHTML = `
+                    <div class="error-message">
+                        <p>Failed to load Pokémon data. Please try again later.</p>
+                        <p>Error: ${error.message}</p>
+                        <button onclick="loadPokedexData()">Try Again</button>
+                    </div>
+                `;
+            }
+        }
+        
+        function renderPokemonList(pokemonList) {
+            const listElement = document.getElementById('pokemonList');
+            
+            // Clear the list
+            listElement.innerHTML = '';
+            
+            console.log(`Rendering ${pokemonList.length} caught Pokémon`);
+            
+            // Show message if no Pokémon caught yet
+            if (pokemonList.length === 0) {
+                listElement.innerHTML = `
+                    <div class="empty-pokedex">
+                        <img src="/static/images/professor-oak.png" alt="Professor Oak" class="professor-image">
+                        <div class="message-bubble">
+                            <p>You haven't caught any Pokémon yet!</p>
+                            <p>Brush your teeth to catch Pokémon and fill your Pokédex.</p>
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+            
+            // Create a simple HTML string for all Pokémon
+            let pokemonHTML = '';
+            
+            // Render caught Pokémon
+            pokemonList.forEach(pokemon => {
+                const name = pokemon.name.charAt(0).toUpperCase() + pokemon.name.slice(1);
+                const types = pokemon.types.map(type => 
+                    `<span class="type-badge ${type.toLowerCase()}">${type}</span>`
+                ).join('');
+                
+                pokemonHTML += `
+                    <div class="pokemon-list-item caught" onclick="showPokemonDetails(${JSON.stringify(pokemon).replace(/"/g, '&quot;')})">
+                        <img src="${pokemon.sprite}" alt="${name}">
+                        <div class="pokemon-info">
+                            <h3>${name}</h3>
+                            <div class="pokemon-types">
+                                ${types}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            // Set the HTML all at once
+            listElement.innerHTML = pokemonHTML;
+            
+            // Log the HTML for debugging
+            console.log("Generated HTML:", pokemonHTML.substring(0, 500) + "...");
+            
+            // Debug the display
+            setTimeout(debugPokemonDisplay, 100);
+        }
+        
+        function searchPokemon() {
+            const searchTerm = document.getElementById('pokemonSearch').value.toLowerCase().trim();
+            
+            // Get the current Pokémon list from the DOM
+            const currentPokemonElements = document.querySelectorAll('.pokemon-list-item');
+            const currentPokemonList = [];
+            
+            // Extract Pokémon data from the DOM elements
+            currentPokemonElements.forEach(element => {
+                const name = element.querySelector('h3').textContent.toLowerCase();
+                const types = Array.from(element.querySelectorAll('.type-badge')).map(badge => badge.textContent.toLowerCase());
+                const img = element.querySelector('img');
+                
+                currentPokemonList.push({
+                    element: element,
+                    name: name,
+                    types: types,
+                    sprite: img.src,
+                    visible: true
+                });
+            });
+            
+            if (!searchTerm) {
+                // Show all Pokémon if search is empty
+                currentPokemonList.forEach(pokemon => {
+                    pokemon.element.style.display = 'flex';
+                });
+                return;
+            }
+            
+            // Filter Pokémon based on search term
+            currentPokemonList.forEach(pokemon => {
+                const matchesName = pokemon.name.includes(searchTerm);
+                const matchesType = pokemon.types.some(type => type.includes(searchTerm));
+                
+                if (matchesName || matchesType) {
+                    pokemon.element.style.display = 'flex';
+                } else {
+                    pokemon.element.style.display = 'none';
+                }
+            });
+            
+            // Show message if no results
+            const listElement = document.getElementById('pokemonList');
+            const visibleCount = currentPokemonList.filter(p => p.element.style.display !== 'none').length;
+            
+            const noResultsElement = document.getElementById('noSearchResults');
+            if (visibleCount === 0) {
+                if (!noResultsElement) {
+                    const noResults = document.createElement('div');
+                    noResults.id = 'noSearchResults';
+                    noResults.className = 'no-results-message';
+                    noResults.innerHTML = `
+                        <p>No Pokémon found matching "${searchTerm}"</p>
+                        <button onclick="clearSearch()">Clear Search</button>
+                    `;
+                    listElement.appendChild(noResults);
+                }
+            } else if (noResultsElement) {
+                noResultsElement.remove();
+            }
+        }
+        
+        function clearSearch() {
+            document.getElementById('pokemonSearch').value = '';
+            searchPokemon();
+        }
+        
+        function showPokemonDetails(pokemonData) {
+            // If pokemonData is a string, parse it
+            const pokemon = typeof pokemonData === 'string' ? JSON.parse(pokemonData) : pokemonData;
+            
+            document.getElementById('pokemonDetailName').textContent = 
+                pokemon.name.charAt(0).toUpperCase() + pokemon.name.slice(1);
+            document.getElementById('pokemonDetailImage').src = pokemon.sprite;
+            document.getElementById('pokemonDetailImage').alt = pokemon.name;
+            
+            // Set types
+            const typesContainer = document.getElementById('pokemonDetailTypes');
+            typesContainer.innerHTML = '';
+            pokemon.types.forEach(type => {
+                const typeSpan = document.createElement('span');
+                typeSpan.className = `type-badge ${type.toLowerCase()}`;
+                typeSpan.textContent = type;
+                typesContainer.appendChild(typeSpan);
+            });
+            
+            // Set generation and description
+            document.getElementById('pokemonGeneration').textContent = `Generation ${pokemon.generation}`;
+            document.getElementById('pokemonDescription').textContent = pokemon.description || 
+                "No description available for this Pokémon.";
+            
+            // Set up cry button
+            const cryButton = document.getElementById('cryButton');
+            if (pokemon.cry) {
+                cryButton.disabled = false;
+                cryButton.onclick = () => playPokemonCry(pokemon.cry);
+            } else {
+                cryButton.disabled = true;
+            }
+            
+            // Show the popup
+            document.getElementById('pokemonDetailPopup').style.display = 'flex';
+        }
+        
+        function closeDetailPopup() {
+            document.getElementById('pokemonDetailPopup').style.display = 'none';
+        }
+        
+        function playPokemonCry(cryUrl) {
+            const cryButton = document.getElementById('cryButton');
+            const cry = new Audio(cryUrl);
+            
+            // Add loading state
+            cryButton.classList.add('loading');
+            cryButton.innerHTML = '<span class="spinner-small"></span> Loading...';
+            
+            // Set up error handling
+            cry.onerror = function() {
+                console.error("Error loading cry audio:", cryUrl);
+                cryButton.classList.remove('loading');
+                cryButton.classList.add('error');
+                cryButton.innerHTML = '<span class="sound-icon">🔇</span> Audio Failed';
+                
+                // Reset after a delay
+                setTimeout(() => {
+                    cryButton.classList.remove('error');
+                    cryButton.innerHTML = '<span class="sound-icon">🔊</span> Play Cry';
+                }, 2000);
+            };
+            
+            // Set up success handling
+            cry.oncanplaythrough = function() {
+                cryButton.classList.remove('loading');
+                cryButton.innerHTML = '<span class="sound-icon">🔊</span> Playing...';
+                
+                cry.play()
+                    .then(() => {
+                        // Reset button after audio finishes
+                        cry.onended = function() {
+                            cryButton.innerHTML = '<span class="sound-icon">🔊</span> Play Cry';
+                        };
+                    })
+                    .catch(err => {
+                        console.error("Error playing cry:", err);
+                        cryButton.classList.add('error');
+                        cryButton.innerHTML = '<span class="sound-icon">🔇</span> Playback Failed';
+                        
+                        // Reset after a delay
+                        setTimeout(() => {
+                            cryButton.classList.remove('error');
+                            cryButton.innerHTML = '<span class="sound-icon">🔊</span> Play Cry';
+                        }, 2000);
+                    });
+            };
+            
+            // Start loading the audio
+            cry.load();
+        }
+        
+        function initializeMusic() {
+            // Check if music should be playing based on user preference
+            fetch('/api/active_profile')
+                .then(res => res.json())
+                .then(profile => {
+                    if (profile && profile.musicToggle === 'on') {
+                        togglePokedexMusic();
+                    }
+                })
+                .catch(err => console.error("Error checking music preference:", err));
+        }
+        
+        function togglePokedexMusic() {
+            const musicBtn = document.querySelector('.music-btn');
+            
+            if (!pokedexMusic) {
+                // Initialize music if it doesn't exist
+                pokedexMusic = new Audio();
+                pokedexMusic.loop = true;
+                pokedexMusic.volume = 0.6;
+                pokedexMusic.src = '/static/music/BGM Pokedex.mp3';
+            }
+            
+            if (isMusicPlaying) {
+                // Pause music
+                pokedexMusic.pause();
+                musicBtn.textContent = '🔇';
+                isMusicPlaying = false;
+            } else {
+                // Play music
+                pokedexMusic.play()
+                    .then(() => {
+                        musicBtn.textContent = '🔊';
+                        isMusicPlaying = true;
+                    })
+                    .catch(err => {
+                        console.warn("Music autoplay blocked:", err);
+                        musicBtn.textContent = '🔇';
+                    });
+            }
+        }
+        
+        function debugPokemonDisplay() {
+            console.log("DEBUG: Checking Pokémon display issues");
+            
+            // Check if the Pokémon list container exists
+            const listElement = document.getElementById('pokemonList');
+            if (!listElement) {
+                console.error("DEBUG: Pokémon list container not found!");
+                return;
+            }
+            
+            // Check if there are any Pokémon items
+            const pokemonItems = listElement.querySelectorAll('.pokemon-list-item');
+            console.log(`DEBUG: Found ${pokemonItems.length} Pokémon items in the DOM`);
+            
+            // Check if the container has any children at all
+            console.log(`DEBUG: List container has ${listElement.children.length} children`);
+            
+            // Check if the container is visible
+            const listStyle = window.getComputedStyle(listElement);
+            console.log(`DEBUG: List container display: ${listStyle.display}, visibility: ${listStyle.visibility}`);
+            console.log(`DEBUG: List container width: ${listStyle.width}, height: ${listStyle.height}`);
+            
+            // Check if there's any CSS that might be hiding the Pokémon
+            console.log(`DEBUG: List container overflow: ${listStyle.overflow}`);
+            console.log(`DEBUG: List container position: ${listStyle.position}`);
+            
+            // Add this call at the end of loadPokedexData
+            if (pokemonItems.length === 0) {
+                // Force a re-render with a slight delay
+                setTimeout(() => {
+                    console.log("DEBUG: Forcing re-render of Pokémon list");
+                    const container = document.querySelector('.pokedex-container');
+                    if (container) {
+                        // Toggle a class to force a reflow
+                        container.classList.add('force-reflow');
+                        setTimeout(() => container.classList.remove('force-reflow'), 10);
+                    }
+                }, 500);
+            }
+        }
+        
+        // Device detection function
+        function detectDevice() {
+            const body = document.body;
+            const width = window.innerWidth;
+            
+            // Remove existing device classes
+            body.classList.remove('device-desktop', 'device-tablet', 'device-mobile', 'device-small-mobile');
+            
+            // Add appropriate device class
+            if (width <= 320) {
+                body.classList.add('device-small-mobile');
+                console.log("Detected very small mobile device");
+            } else if (width <= 480) {
+                body.classList.add('device-mobile');
+                console.log("Detected mobile device");
+            } else if (width <= 768) {
+                body.classList.add('device-tablet');
+                console.log("Detected tablet device");
+            } else {
+                body.classList.add('device-desktop');
+                console.log("Detected desktop device");
+            }
+            
+            // Also check for touch capability
+            if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
+                body.classList.add('device-touch');
+                console.log("Touch capability detected");
+            }
+        }
     </script>
 </body>
 </html>

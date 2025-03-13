@@ -32,11 +32,51 @@
         "documentation": {}
     },
     {
+        "label": "session",
+        "importPath": "flask",
+        "description": "flask",
+        "isExtraImport": true,
+        "detail": "flask",
+        "documentation": {}
+    },
+    {
+        "label": "redirect",
+        "importPath": "flask",
+        "description": "flask",
+        "isExtraImport": true,
+        "detail": "flask",
+        "documentation": {}
+    },
+    {
+        "label": "url_for",
+        "importPath": "flask",
+        "description": "flask",
+        "isExtraImport": true,
+        "detail": "flask",
+        "documentation": {}
+    },
+    {
         "label": "MongoClient",
         "importPath": "pymongo",
         "description": "pymongo",
         "isExtraImport": true,
         "detail": "pymongo",
+        "documentation": {}
+    },
+    {
+        "label": "ConnectionFailure",
+        "importPath": "pymongo.errors",
+        "description": "pymongo.errors",
+        "isExtraImport": true,
+        "detail": "pymongo.errors",
+        "documentation": {}
+    },
+    {
+        "label": "ServerSelectionTimeoutError",
+        "importPath": "pymongo.errors",
+        "description": "pymongo.errors",
+        "isExtraImport": true,
+        "detail": "pymongo.errors",
         "documentation": {}
     },
     {
@@ -75,6 +115,66 @@
         "documentation": {}
     },
     {
+        "label": "secrets",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "secrets",
+        "description": "secrets",
+        "detail": "secrets",
+        "documentation": {}
+    },
+    {
+        "label": "ObjectId",
+        "importPath": "bson.objectid",
+        "description": "bson.objectid",
+        "isExtraImport": true,
+        "detail": "bson.objectid",
+        "documentation": {}
+    },
+    {
+        "label": "sys",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "sys",
+        "description": "sys",
+        "detail": "sys",
+        "documentation": {}
+    },
+    {
+        "label": "datetime",
+        "importPath": "datetime",
+        "description": "datetime",
+        "isExtraImport": true,
+        "detail": "datetime",
+        "documentation": {}
+    },
+    {
+        "label": "timedelta",
+        "importPath": "datetime",
+        "description": "datetime",
+        "isExtraImport": true,
+        "detail": "datetime",
+        "documentation": {}
+    },
+    {
+        "label": "json",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "json",
+        "description": "json",
+        "detail": "json",
+        "documentation": {}
+    },
+    {
+        "label": "make_session_permanent",
+        "kind": 2,
+        "importPath": "app",
+        "description": "app",
+        "peekOfCode": "def make_session_permanent():\n    session.permanent = True\nPOKEAPI_BASE = \"https://pokeapi.co/api/v2\"\nMONGO_URI = os.environ.get(\"MONGO_URI\", \"mongodb://localhost:27017/\")\n# Connect to MongoDB\ntry:\n    print(f\"Attempting to connect to MongoDB at {MONGO_URI}\")\n    client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)  # 5 second timeout\n    # Force a connection to verify it works\n    client.admin.command('ping')",
+        "detail": "app",
+        "documentation": {}
+    },
+    {
         "label": "get_random_pokemon_sprite",
         "kind": 2,
         "importPath": "app",
@@ -88,7 +188,25 @@
         "kind": 2,
         "importPath": "app",
         "description": "app",
-        "peekOfCode": "def main_menu():\n    random_pokemon = get_random_pokemon_sprite()\n    return render_template('index.html', sprite_url=random_pokemon['sprite'], pokemon_name=random_pokemon['name'])\n# -------------------\n# NEW SINGLE-PAGE POKEDEX ROUTE\n# -------------------\n@app.route('/pokedex')\ndef pokedex():\n    return render_template('pokedex.html')\n# -------------------",
+        "peekOfCode": "def main_menu():\n    # Check if user is logged in\n    if 'user_id' in session:\n        # Get the user's profile\n        user_id = session['user_id']\n        try:\n            if not isinstance(user_id, ObjectId):\n                user_id = ObjectId(user_id)\n        except:\n            pass",
+        "detail": "app",
+        "documentation": {}
+    },
+    {
+        "label": "login",
+        "kind": 2,
+        "importPath": "app",
+        "description": "app",
+        "peekOfCode": "def login():\n    # Get the next page to redirect to after login\n    next_page = request.args.get('next', '')\n    if request.method == 'POST':\n        username = request.form.get('username')\n        password = request.form.get('password')\n        # Find user in database\n        user = profiles_collection.find_one({\"name\": username, \"password\": password})\n        if user:\n            # Convert ObjectId to string before storing in session",
+        "detail": "app",
+        "documentation": {}
+    },
+    {
+        "label": "logout",
+        "kind": 2,
+        "importPath": "app",
+        "description": "app",
+        "peekOfCode": "def logout():\n    session.pop('user_id', None)\n    return redirect(url_for('main_menu'))\n# -------------------\n# NEW SINGLE-PAGE POKEDEX ROUTE\n# -------------------\n@app.route('/pokedex')\ndef pokedex():\n    # Check if user is logged in\n    if 'user_id' not in session:",
         "detail": "app",
         "documentation": {}
     },
@@ -97,7 +215,7 @@
         "kind": 2,
         "importPath": "app",
         "description": "app",
-        "peekOfCode": "def pokedex():\n    return render_template('pokedex.html')\n# -------------------\n# BRUSHING SCREEN ROUTE\n# -------------------\n@app.route('/brushing')\ndef brushing():\n    return render_template('brushing.html')\n# -------------------\n# API ROUTES FOR MONGODB",
+        "peekOfCode": "def pokedex():\n    # Check if user is logged in\n    if 'user_id' not in session:\n        # Redirect to login if not logged in\n        return redirect(url_for('login', next='pokedex'))\n    return render_template('pokedex.html')\n# -------------------\n# BRUSHING SCREEN ROUTE\n# -------------------\n@app.route('/brushing')",
         "detail": "app",
         "documentation": {}
     },
@@ -106,7 +224,7 @@
         "kind": 2,
         "importPath": "app",
         "description": "app",
-        "peekOfCode": "def brushing():\n    return render_template('brushing.html')\n# -------------------\n# API ROUTES FOR MONGODB\n# -------------------\n@app.route('/api/save_profile', methods=['POST'])\ndef save_profile():\n    data = request.json\n    profiles_collection.replace_one({\"name\": data[\"name\"]}, data, upsert=True)\n    return jsonify({\"status\": \"saved\"})",
+        "peekOfCode": "def brushing():\n    # Check if user is logged in\n    if 'user_id' not in session:\n        # Redirect to login if not logged in\n        return redirect(url_for('login', next='brushing'))\n    return render_template('brushing.html')\n# -------------------\n# API ROUTES FOR MONGODB\n# -------------------\n@app.route('/api/save_profile', methods=['POST'])",
         "detail": "app",
         "documentation": {}
     },
@@ -115,7 +233,7 @@
         "kind": 2,
         "importPath": "app",
         "description": "app",
-        "peekOfCode": "def save_profile():\n    data = request.json\n    profiles_collection.replace_one({\"name\": data[\"name\"]}, data, upsert=True)\n    return jsonify({\"status\": \"saved\"})\n@app.route('/api/load_profile/<name>')\ndef load_profile(name):\n    profile = profiles_collection.find_one({\"name\": name}, {\"_id\": 0})\n    return jsonify(profile or {})\n@app.route('/api/save_pokemon/<profile_name>', methods=['POST'])\ndef save_pokemon(profile_name):",
+        "peekOfCode": "def save_profile():\n    profile_data = request.json\n    # Log the received data for debugging\n    print(f\"Received profile data: {profile_data}\")\n    # Check if this is an update to an existing profile\n    if '_id' in profile_data:\n        try:\n            # Convert string ID to ObjectId if needed\n            if not isinstance(profile_data['_id'], ObjectId):\n                profile_id = ObjectId(profile_data['_id'])",
         "detail": "app",
         "documentation": {}
     },
@@ -124,7 +242,7 @@
         "kind": 2,
         "importPath": "app",
         "description": "app",
-        "peekOfCode": "def load_profile(name):\n    profile = profiles_collection.find_one({\"name\": name}, {\"_id\": 0})\n    return jsonify(profile or {})\n@app.route('/api/save_pokemon/<profile_name>', methods=['POST'])\ndef save_pokemon(profile_name):\n    data = request.json\n    profiles_collection.update_one(\n        {\"name\": profile_name},\n        {\"$push\": {\"caught_pokemon\": data}},\n        upsert=True",
+        "peekOfCode": "def load_profile(name):\n    profile = profiles_collection.find_one({\"name\": name})\n    if profile:\n        # Convert ObjectId to string for JSON serialization\n        profile['_id'] = str(profile['_id'])\n        # Store user ID in session\n        session['user_id'] = profile['_id']\n        return jsonify(profile)\n    return jsonify({})\n@app.route('/api/save_pokemon/<profile_name>', methods=['POST'])",
         "detail": "app",
         "documentation": {}
     },
@@ -133,7 +251,7 @@
         "kind": 2,
         "importPath": "app",
         "description": "app",
-        "peekOfCode": "def save_pokemon(profile_name):\n    data = request.json\n    profiles_collection.update_one(\n        {\"name\": profile_name},\n        {\"$push\": {\"caught_pokemon\": data}},\n        upsert=True\n    )\n    return jsonify({\"status\": \"pokemon added\"})\n@app.route('/api/get_pokedex/<profile_name>')\ndef get_pokedex(profile_name):",
+        "peekOfCode": "def save_pokemon(profile_name):\n    data = request.json\n    # Only save if user is logged in\n    if 'user_id' in session:\n        user_id = session['user_id']\n        try:\n            if not isinstance(user_id, ObjectId):\n                user_id = ObjectId(user_id)\n        except:\n            pass",
         "detail": "app",
         "documentation": {}
     },
@@ -142,7 +260,7 @@
         "kind": 2,
         "importPath": "app",
         "description": "app",
-        "peekOfCode": "def get_pokedex(profile_name):\n    profile = profiles_collection.find_one({\"name\": profile_name}, {\"_id\": 0, \"caught_pokemon\": 1})\n    return jsonify(profile.get(\"caught_pokemon\", []) if profile else [])\n@app.route('/api/get_profiles')\ndef get_profiles():\n    profiles = list(profiles_collection.find({}, {\"_id\": 0}))\n    return jsonify(profiles)\n@app.route('/api/active_profile')\ndef active_profile():\n    profile = profiles_collection.find_one({}, {\"_id\": 0})",
+        "peekOfCode": "def get_pokedex():\n    # Only return Pokémon for logged in user\n    if 'user_id' not in session:\n        print(\"User not logged in when trying to access Pokédex\")\n        return jsonify({\"error\": \"Not logged in\"}), 401\n    # Convert string ID back to ObjectId for MongoDB query\n    user_id = session['user_id']\n    try:\n        # If it's already an ObjectId, this will fail\n        if not isinstance(user_id, ObjectId):",
         "detail": "app",
         "documentation": {}
     },
@@ -151,16 +269,70 @@
         "kind": 2,
         "importPath": "app",
         "description": "app",
-        "peekOfCode": "def get_profiles():\n    profiles = list(profiles_collection.find({}, {\"_id\": 0}))\n    return jsonify(profiles)\n@app.route('/api/active_profile')\ndef active_profile():\n    profile = profiles_collection.find_one({}, {\"_id\": 0})\n    return jsonify(profile or {})\nif __name__ == '__main__':\n    app.run(host='0.0.0.0', port=5000, debug=True)",
+        "peekOfCode": "def get_profiles():\n    if 'user_id' in session:\n        user_id = session['user_id']\n        try:\n            if not isinstance(user_id, ObjectId):\n                user_id = ObjectId(user_id)\n        except:\n            pass\n        profile = profiles_collection.find_one({\"_id\": user_id})\n        if profile:",
         "detail": "app",
         "documentation": {}
     },
     {
-        "label": "active_profile",
+        "label": "get_active_profile",
         "kind": 2,
         "importPath": "app",
         "description": "app",
-        "peekOfCode": "def active_profile():\n    profile = profiles_collection.find_one({}, {\"_id\": 0})\n    return jsonify(profile or {})\nif __name__ == '__main__':\n    app.run(host='0.0.0.0', port=5000, debug=True)",
+        "peekOfCode": "def get_active_profile():\n    if 'user_id' in session:\n        try:\n            user_id = session['user_id']\n            if not isinstance(user_id, ObjectId):\n                user_id = ObjectId(user_id)\n            profile = profiles_collection.find_one({\"_id\": user_id})\n            if profile:\n                # Convert ObjectId to string for JSON serialization\n                profile['_id'] = str(profile['_id'])",
+        "detail": "app",
+        "documentation": {}
+    },
+    {
+        "label": "debug_session",
+        "kind": 2,
+        "importPath": "app",
+        "description": "app",
+        "peekOfCode": "def debug_session():\n    print(\"Session debug requested\")\n    print(f\"Current session: {dict(session)}\")\n    if 'user_id' in session:\n        user_id = session['user_id']\n        print(f\"User ID in session: {user_id}\")\n        try:\n            if not isinstance(user_id, ObjectId):\n                user_id = ObjectId(user_id)\n                print(f\"Converted user_id to ObjectId: {user_id}\")",
+        "detail": "app",
+        "documentation": {}
+    },
+    {
+        "label": "api_login",
+        "kind": 2,
+        "importPath": "app",
+        "description": "app",
+        "peekOfCode": "def api_login():\n    data = request.json\n    name = data.get('name')\n    password = data.get('password')\n    # Debug logging\n    print(f\"Login attempt for user: {name}\")\n    if not name or not password:\n        return jsonify({\"success\": False, \"message\": \"Username and password are required\"}), 400\n    # Try MongoDB first\n    try:",
+        "detail": "app",
+        "documentation": {}
+    },
+    {
+        "label": "all_pokemon",
+        "kind": 2,
+        "importPath": "app",
+        "description": "app",
+        "peekOfCode": "def all_pokemon():\n    try:\n        # Get all Pokémon from the first 3 generations (1-386)\n        pokemon_list = []\n        # First, check if we have a cached version\n        cache_file = 'pokemon_cache.json'\n        if os.path.exists(cache_file):\n            try:\n                with open(cache_file, 'r') as f:\n                    pokemon_list = json.load(f)",
+        "detail": "app",
+        "documentation": {}
+    },
+    {
+        "label": "search_pokemon",
+        "kind": 2,
+        "importPath": "app",
+        "description": "app",
+        "peekOfCode": "def search_pokemon():\n    query = request.args.get('name', '').lower()\n    if not query:\n        return jsonify([])\n    try:\n        # First try to get exact match from PokeAPI\n        url = f\"{POKEAPI_BASE}/pokemon/{query}\"\n        response = requests.get(url)\n        if response.status_code == 200:\n            data = response.json()",
+        "detail": "app",
+        "documentation": {}
+    },
+    {
+        "label": "user_pokedex",
+        "kind": 2,
+        "importPath": "app",
+        "description": "app",
+        "peekOfCode": "def user_pokedex():\n    if 'user_id' not in session:\n        return jsonify({\"error\": \"Not logged in\"}), 401\n    try:\n        user_id = session['user_id']\n        if not isinstance(user_id, ObjectId):\n            try:\n                user_id = ObjectId(user_id)\n            except:\n                pass",
+        "detail": "app",
+        "documentation": {}
+    },
+    {
+        "label": "get_pokemon",
+        "kind": 2,
+        "importPath": "app",
+        "description": "app",
+        "peekOfCode": "def get_pokemon(pokemon_id):\n    try:\n        # First check if we have it in cache\n        cache_file = 'pokemon_cache.json'\n        if os.path.exists(cache_file):\n            try:\n                with open(cache_file, 'r') as f:\n                    pokemon_list = json.load(f)\n                    for pokemon in pokemon_list:\n                        if pokemon['id'] == pokemon_id:",
         "detail": "app",
         "documentation": {}
     },
@@ -169,7 +341,34 @@
         "kind": 5,
         "importPath": "app",
         "description": "app",
-        "peekOfCode": "app = Flask(__name__)\nPOKEAPI_BASE = \"https://pokeapi.co/api/v2\"\nMONGO_URI = os.environ.get(\"MONGO_URI\", \"mongodb://mongo:27017/\")\nclient = MongoClient(MONGO_URI)\ndb = client[\"pokemon_smile\"]\nprofiles_collection = db[\"profiles\"]\n# -------------------\n# HOME PAGE\n# -------------------\ndef get_random_pokemon_sprite():",
+        "peekOfCode": "app = Flask(__name__)\napp.secret_key = os.environ.get(\"SECRET_KEY\", secrets.token_hex(16))\napp.config['SESSION_TYPE'] = 'filesystem'\napp.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=7)  # Make sessions last longer\n# Make sessions permanent by default\n@app.before_request\ndef make_session_permanent():\n    session.permanent = True\nPOKEAPI_BASE = \"https://pokeapi.co/api/v2\"\nMONGO_URI = os.environ.get(\"MONGO_URI\", \"mongodb://localhost:27017/\")",
+        "detail": "app",
+        "documentation": {}
+    },
+    {
+        "label": "app.secret_key",
+        "kind": 5,
+        "importPath": "app",
+        "description": "app",
+        "peekOfCode": "app.secret_key = os.environ.get(\"SECRET_KEY\", secrets.token_hex(16))\napp.config['SESSION_TYPE'] = 'filesystem'\napp.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=7)  # Make sessions last longer\n# Make sessions permanent by default\n@app.before_request\ndef make_session_permanent():\n    session.permanent = True\nPOKEAPI_BASE = \"https://pokeapi.co/api/v2\"\nMONGO_URI = os.environ.get(\"MONGO_URI\", \"mongodb://localhost:27017/\")\n# Connect to MongoDB",
+        "detail": "app",
+        "documentation": {}
+    },
+    {
+        "label": "app.config['SESSION_TYPE']",
+        "kind": 5,
+        "importPath": "app",
+        "description": "app",
+        "peekOfCode": "app.config['SESSION_TYPE'] = 'filesystem'\napp.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=7)  # Make sessions last longer\n# Make sessions permanent by default\n@app.before_request\ndef make_session_permanent():\n    session.permanent = True\nPOKEAPI_BASE = \"https://pokeapi.co/api/v2\"\nMONGO_URI = os.environ.get(\"MONGO_URI\", \"mongodb://localhost:27017/\")\n# Connect to MongoDB\ntry:",
+        "detail": "app",
+        "documentation": {}
+    },
+    {
+        "label": "app.config['PERMANENT_SESSION_LIFETIME']",
+        "kind": 5,
+        "importPath": "app",
+        "description": "app",
+        "peekOfCode": "app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=7)  # Make sessions last longer\n# Make sessions permanent by default\n@app.before_request\ndef make_session_permanent():\n    session.permanent = True\nPOKEAPI_BASE = \"https://pokeapi.co/api/v2\"\nMONGO_URI = os.environ.get(\"MONGO_URI\", \"mongodb://localhost:27017/\")\n# Connect to MongoDB\ntry:\n    print(f\"Attempting to connect to MongoDB at {MONGO_URI}\")",
         "detail": "app",
         "documentation": {}
     },
@@ -178,7 +377,7 @@
         "kind": 5,
         "importPath": "app",
         "description": "app",
-        "peekOfCode": "POKEAPI_BASE = \"https://pokeapi.co/api/v2\"\nMONGO_URI = os.environ.get(\"MONGO_URI\", \"mongodb://mongo:27017/\")\nclient = MongoClient(MONGO_URI)\ndb = client[\"pokemon_smile\"]\nprofiles_collection = db[\"profiles\"]\n# -------------------\n# HOME PAGE\n# -------------------\ndef get_random_pokemon_sprite():\n    total_pokemon = 898",
+        "peekOfCode": "POKEAPI_BASE = \"https://pokeapi.co/api/v2\"\nMONGO_URI = os.environ.get(\"MONGO_URI\", \"mongodb://localhost:27017/\")\n# Connect to MongoDB\ntry:\n    print(f\"Attempting to connect to MongoDB at {MONGO_URI}\")\n    client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)  # 5 second timeout\n    # Force a connection to verify it works\n    client.admin.command('ping')\n    print(\"MongoDB connection successful!\")\n    db = client[\"pokemon_smile\"]",
         "detail": "app",
         "documentation": {}
     },
@@ -187,34 +386,7 @@
         "kind": 5,
         "importPath": "app",
         "description": "app",
-        "peekOfCode": "MONGO_URI = os.environ.get(\"MONGO_URI\", \"mongodb://mongo:27017/\")\nclient = MongoClient(MONGO_URI)\ndb = client[\"pokemon_smile\"]\nprofiles_collection = db[\"profiles\"]\n# -------------------\n# HOME PAGE\n# -------------------\ndef get_random_pokemon_sprite():\n    total_pokemon = 898\n    random_id = random.randint(1, total_pokemon)",
-        "detail": "app",
-        "documentation": {}
-    },
-    {
-        "label": "client",
-        "kind": 5,
-        "importPath": "app",
-        "description": "app",
-        "peekOfCode": "client = MongoClient(MONGO_URI)\ndb = client[\"pokemon_smile\"]\nprofiles_collection = db[\"profiles\"]\n# -------------------\n# HOME PAGE\n# -------------------\ndef get_random_pokemon_sprite():\n    total_pokemon = 898\n    random_id = random.randint(1, total_pokemon)\n    url = f\"{POKEAPI_BASE}/pokemon/{random_id}\"",
-        "detail": "app",
-        "documentation": {}
-    },
-    {
-        "label": "db",
-        "kind": 5,
-        "importPath": "app",
-        "description": "app",
-        "peekOfCode": "db = client[\"pokemon_smile\"]\nprofiles_collection = db[\"profiles\"]\n# -------------------\n# HOME PAGE\n# -------------------\ndef get_random_pokemon_sprite():\n    total_pokemon = 898\n    random_id = random.randint(1, total_pokemon)\n    url = f\"{POKEAPI_BASE}/pokemon/{random_id}\"\n    data = requests.get(url).json()",
-        "detail": "app",
-        "documentation": {}
-    },
-    {
-        "label": "profiles_collection",
-        "kind": 5,
-        "importPath": "app",
-        "description": "app",
-        "peekOfCode": "profiles_collection = db[\"profiles\"]\n# -------------------\n# HOME PAGE\n# -------------------\ndef get_random_pokemon_sprite():\n    total_pokemon = 898\n    random_id = random.randint(1, total_pokemon)\n    url = f\"{POKEAPI_BASE}/pokemon/{random_id}\"\n    data = requests.get(url).json()\n    name = data['name'].capitalize()",
+        "peekOfCode": "MONGO_URI = os.environ.get(\"MONGO_URI\", \"mongodb://localhost:27017/\")\n# Connect to MongoDB\ntry:\n    print(f\"Attempting to connect to MongoDB at {MONGO_URI}\")\n    client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)  # 5 second timeout\n    # Force a connection to verify it works\n    client.admin.command('ping')\n    print(\"MongoDB connection successful!\")\n    db = client[\"pokemon_smile\"]\n    profiles_collection = db[\"profiles\"]",
         "detail": "app",
         "documentation": {}
     }

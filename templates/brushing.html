@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Brushing Screen</title>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='brushing.css') }}">
   <link rel="icon" type="image/png" href="{{ url_for('static', filename='favicon.png') }}">
 </head>
@@ -57,18 +58,26 @@
 
       async function loadActiveProfile() {
         try {
-          const res = await fetch("/api/get_profiles");
-          const profiles = await res.json();
-          if (profiles.length > 0) {
-            activeProfile = profiles[0];
-            countdown = parseInt(activeProfile.brushingTime || 60);
+          const res = await fetch("/api/active_profile");
+          const profile = await res.json();
+          
+          if (Object.keys(profile).length > 0) {
+            activeProfile = profile;
+            
+            // Set the countdown based on user preference
+            const savedTime = parseInt(activeProfile.brushingTime || 60);
+            countdown = savedTime;
+            timerElement.textContent = countdown;
+            
+            console.log(`Loaded profile: ${profile.name} with brushing time: ${countdown} seconds`);
+            
             if (activeProfile.buddyPokemon) {
               buddySprite.src = activeProfile.buddyPokemon.sprite;
               buddySprite.alt = activeProfile.buddyPokemon.name;
             }
           } else {
-            console.warn("No profile found");
-            countdown = 60;
+            console.warn("No active profile found. Please log in.");
+            window.location.href = "/login";
           }
         } catch (err) {
           console.error("Failed to load active profile:", err);
@@ -77,7 +86,6 @@
 
       async function initBrushingApp() {
         await loadActiveProfile();
-        timerElement.textContent = countdown;
         startCamera();
         startShadowPokemon();
         startBrushingTimer();
@@ -191,7 +199,7 @@
       }
 
       function saveCaughtPokemon() {
-        if (!activeProfile?.name) {
+        if (!activeProfile?._id) {
           console.warn("No active profile for saving Pokémon");
           return;
         }
@@ -203,28 +211,68 @@
           generation: mysteryPokemonGeneration
         };
 
+        console.log("Saving Pokémon:", newPokemon);
+        console.log("Active profile:", activeProfile);
+
         fetch(`/api/save_pokemon/${activeProfile.name}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(newPokemon)
-        }).then(res => res.json())
-          .then(data => console.log("Saved Pokémon to MongoDB:", data))
-          .catch(err => console.error("Failed to save Pokémon:", err));
+        })
+        .then(res => {
+          if (!res.ok) {
+            throw new Error(`Server responded with status: ${res.status}`);
+          }
+          return res.json();
+        })
+        .then(data => {
+          console.log("Saved Pokémon to MongoDB:", data);
+        })
+        .catch(err => {
+          console.error("Failed to save Pokémon:", err);
+          alert("There was a problem saving your Pokémon. Please try again.");
+        });
       }
 
       function showCapturePopup() {
         const popup = document.createElement("div");
         popup.className = "capture-popup";
-        popup.style.cssText = `position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); background:#fff; padding:30px; border-radius:20px; box-shadow:0 10px 20px rgba(0,0,0,0.2); z-index:9999; text-align:center;`;
+        popup.style.cssText = `
+          position: fixed; 
+          top: 50%; 
+          left: 50%; 
+          transform: translate(-50%,-50%); 
+          background: #fff; 
+          padding: 30px; 
+          border-radius: 20px; 
+          box-shadow: 0 10px 20px rgba(0,0,0,0.2); 
+          z-index: 9999; 
+          text-align: center;
+          font-family: var(--main-font);
+        `;
+        
         popup.innerHTML = `
-          <h2>🎉 You caught ${mysteryPokemonName}!</h2>
+          <h2 style="font-family: var(--title-font); font-weight: 700;">🎉 You caught ${mysteryPokemonName}!</h2>
           <img src="${shadowPokemon.src}" alt="${mysteryPokemonName}" style="width: 100px; height: auto; image-rendering: pixelated;">
           <p>Type: ${mysteryPokemonTypes.join(", ")}</p>
           <p>Generation: ${mysteryPokemonGeneration}</p>
-          <button class="ok-btn" style="margin-top:20px; padding:10px 20px; font-size:16px; background:#ffcc00; border:none; border-radius:10px; cursor:pointer;">OK</button>
+          <button class="ok-btn" style="
+            margin-top: 20px; 
+            padding: 10px 20px; 
+            font-size: 16px; 
+            background: #ffcc00; 
+            border: none; 
+            border-radius: 10px; 
+            cursor: pointer;
+            font-family: var(--main-font);
+            font-weight: 600;
+          ">OK</button>
         `;
+        
         document.body.appendChild(popup);
-        popup.querySelector(".ok-btn").addEventListener("click", () => window.location.href = "/");
+        popup.querySelector(".ok-btn").addEventListener("click", () => {
+          window.location.href = "/";
+        });
       }
 
       function playBackgroundMusic() {
