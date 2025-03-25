@@ -2,7 +2,7 @@
 # Script to build and publish the Pokemon Smile Docker image to Docker Hub
 
 # Replace with your Docker Hub username
-DOCKER_USERNAME="yourusername"
+DOCKER_USERNAME="yourbr0ther"
 REPO_NAME="pokemon-smile"
 VERSION="1.0.0"
 
@@ -26,19 +26,21 @@ if ! docker info >/dev/null 2>&1; then
   exit 1
 fi
 
-# Build the Docker image
-echo "Building Docker image..."
-docker build -t $DOCKER_USERNAME/$REPO_NAME:$VERSION .
-docker tag $DOCKER_USERNAME/$REPO_NAME:$VERSION $DOCKER_USERNAME/$REPO_NAME:latest
-
 # Log in to Docker Hub (will prompt for password)
 echo "Logging in to Docker Hub..."
 docker login --username $DOCKER_USERNAME
 
-# Push the images to Docker Hub
-echo "Pushing images to Docker Hub..."
-docker push $DOCKER_USERNAME/$REPO_NAME:$VERSION
-docker push $DOCKER_USERNAME/$REPO_NAME:latest
+# Set up Docker Buildx for multi-platform builds
+echo "Setting up Docker Buildx for multi-platform builds..."
+docker buildx rm mybuilder 2>/dev/null || true
+docker buildx create --name mybuilder --bootstrap --use
+
+# Build multi-platform Docker image
+echo "Building multi-platform Docker image..."
+docker buildx build --platform linux/amd64 \
+  --tag $DOCKER_USERNAME/$REPO_NAME:$VERSION \
+  --tag $DOCKER_USERNAME/$REPO_NAME:latest \
+  --push .
 
 echo "Successfully pushed $DOCKER_USERNAME/$REPO_NAME:$VERSION to Docker Hub!"
 echo "View your image at: https://hub.docker.com/r/$DOCKER_USERNAME/$REPO_NAME" 
