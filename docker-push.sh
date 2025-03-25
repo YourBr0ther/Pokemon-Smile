@@ -2,7 +2,7 @@
 # Script to build and publish the Pokemon Smile Docker image to Docker Hub
 
 # Replace with your Docker Hub username
-DOCKER_USERNAME="yourusername"
+DOCKER_USERNAME="yourbr0ther"
 REPO_NAME="pokemon-smile"
 VERSION="1.0.0"
 
