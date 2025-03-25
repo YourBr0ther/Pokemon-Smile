@@ -37,7 +37,7 @@ docker buildx create --name mybuilder --bootstrap --use
 
 # Build multi-platform Docker image
 echo "Building multi-platform Docker image..."
-docker buildx build --platform linux/amd64,linux/arm64 \
+docker buildx build --platform linux/amd64 \
   --tag $DOCKER_USERNAME/$REPO_NAME:$VERSION \
   --tag $DOCKER_USERNAME/$REPO_NAME:latest \
   --push .
