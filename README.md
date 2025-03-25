@@ -68,14 +68,129 @@ A web application inspired by the Pokémon Smile mobile app, designed to make br
 
 ## Docker Support
 
-For containerized deployment:
+### Setup Requirements
 
-1. Build and run using Docker Compose:
+#### Mac Setup
+1. Install Docker for Mac:
+   ```bash
+   # Using Homebrew
+   brew install --cask docker
    ```
-   docker-compose up --build
+   Or download from [Docker's official website](https://docs.docker.com/desktop/install/mac/)
+
+2. Start Docker Desktop application
+
+#### Windows Setup
+Option 1: Docker Desktop (if available)
+1. Download and install Docker Desktop from [Docker's official website](https://docs.docker.com/desktop/install/windows/)
+2. Make sure WSL2 is enabled for better performance
+
+Option 2: Docker with WSL2 (Windows Subsystem for Linux)
+1. Install WSL2 following [Microsoft's instructions](https://docs.microsoft.com/en-us/windows/wsl/install)
+2. Install a Linux distribution (Ubuntu recommended) from Microsoft Store
+3. Inside WSL2:
+   ```bash
+   # Update packages
+   sudo apt update && sudo apt upgrade
+   
+   # Install Docker
+   sudo apt install docker.io docker-compose
+   
+   # Start Docker service
+   sudo service docker start
+   
+   # Add your user to docker group (optional)
+   sudo usermod -aG docker $USER
    ```
 
-2. The app will be available at `http://localhost:5000`
+### Running the Application
+
+#### On Mac/Linux
+```bash
+# Clone the repository (if you haven't already)
+git clone https://github.com/yourusername/pokemon-smile.git
+cd pokemon-smile
+
+# Make the script executable
+chmod +x docker-start.sh
+
+# Start the application
+./docker-start.sh start
+
+# View logs
+./docker-start.sh logs
+
+# Stop the application
+./docker-start.sh stop
+
+# Rebuild containers after code changes
+./docker-start.sh build
+```
+
+#### On Windows with Docker Desktop
+```powershell
+# Start the application
+.\docker-start.ps1 start
+
+# View logs
+.\docker-start.ps1 logs
+
+# Stop the application
+.\docker-start.ps1 stop
+```
+
+#### On Windows with WSL2 (alternative)
+```bash
+# Navigate to the project directory within WSL
+cd /mnt/c/path/to/pokemon-smile
+
+# Run the Linux script from within WSL
+chmod +x docker-start.sh
+./docker-start.sh start
+```
+
+#### Direct Docker Compose Commands (all platforms)
+```bash
+# Start in the background
+docker compose up -d
+
+# Stop containers
+docker compose down
+
+# View logs
+docker compose logs -f
+```
+
+#### Using Docker Desktop GUI (Mac & Windows)
+1. Open Docker Desktop
+2. Navigate to "Containers"
+3. Find the pokemon-smile container
+4. Use the play/stop/delete buttons to manage the container
+
+The application will be available at `http://localhost:5000` once started.
+
+## Publishing to Docker Hub
+
+1. **For Windows users**:
+   ```powershell
+   # Run the publishing script
+   .\docker-push.ps1
+   
+   # Enter your Docker Hub password when prompted
+   ```
+
+2. **For Linux/Mac users**:
+   ```bash
+   # Make the script executable
+   chmod +x docker-push.sh
+   
+   # Run the publishing script
+   ./docker-push.sh
+   
+   # Enter your Docker Hub password when prompted
+   ```
+
+3. Your image will be available at `https://hub.docker.com/r/yourusername/pokemon-smile`
 
 ## Usage
 

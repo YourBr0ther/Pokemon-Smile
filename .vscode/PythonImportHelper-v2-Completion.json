@@ -166,6 +166,14 @@
         "documentation": {}
     },
     {
+        "label": "CORS",
+        "importPath": "flask_cors",
+        "description": "flask_cors",
+        "isExtraImport": true,
+        "detail": "flask_cors",
+        "documentation": {}
+    },
+    {
         "label": "make_session_permanent",
         "kind": 2,
         "importPath": "app",
@@ -251,7 +259,7 @@
         "kind": 2,
         "importPath": "app",
         "description": "app",
-        "peekOfCode": "def save_pokemon(profile_name):\n    data = request.json\n    # Only save if user is logged in\n    if 'user_id' in session:\n        user_id = session['user_id']\n        try:\n            if not isinstance(user_id, ObjectId):\n                user_id = ObjectId(user_id)\n        except:\n            pass",
+        "peekOfCode": "def save_pokemon(profile_name):\n    data = request.json\n    # Add more detailed logging\n    print(f\"POST /api/save_pokemon/{profile_name}\")\n    print(f\"Request data: {data}\")\n    print(f\"Session data: {session}\")\n    # Only save if user is logged in\n    if 'user_id' in session:\n        user_id = session['user_id']\n        try:",
         "detail": "app",
         "documentation": {}
     },
@@ -341,7 +349,7 @@
         "kind": 5,
         "importPath": "app",
         "description": "app",
-        "peekOfCode": "app = Flask(__name__)\napp.secret_key = os.environ.get(\"SECRET_KEY\", secrets.token_hex(16))\napp.config['SESSION_TYPE'] = 'filesystem'\napp.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=7)  # Make sessions last longer\n# Make sessions permanent by default\n@app.before_request\ndef make_session_permanent():\n    session.permanent = True\nPOKEAPI_BASE = \"https://pokeapi.co/api/v2\"\nMONGO_URI = os.environ.get(\"MONGO_URI\", \"mongodb://localhost:27017/\")",
+        "peekOfCode": "app = Flask(__name__)\nCORS(app)  # Add CORS support to allow cross-origin requests\napp.secret_key = os.environ.get(\"SECRET_KEY\", secrets.token_hex(16))\napp.config['SESSION_TYPE'] = 'filesystem'\napp.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=7)  # Make sessions last longer\napp.config['SERVER_NAME'] = os.environ.get(\"BASE_URL\", \"\").replace(\"http://\", \"\").replace(\"https://\", \"\")\n# Make sessions permanent by default\n@app.before_request\ndef make_session_permanent():\n    session.permanent = True",
         "detail": "app",
         "documentation": {}
     },
@@ -350,7 +358,7 @@
         "kind": 5,
         "importPath": "app",
         "description": "app",
-        "peekOfCode": "app.secret_key = os.environ.get(\"SECRET_KEY\", secrets.token_hex(16))\napp.config['SESSION_TYPE'] = 'filesystem'\napp.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=7)  # Make sessions last longer\n# Make sessions permanent by default\n@app.before_request\ndef make_session_permanent():\n    session.permanent = True\nPOKEAPI_BASE = \"https://pokeapi.co/api/v2\"\nMONGO_URI = os.environ.get(\"MONGO_URI\", \"mongodb://localhost:27017/\")\n# Connect to MongoDB",
+        "peekOfCode": "app.secret_key = os.environ.get(\"SECRET_KEY\", secrets.token_hex(16))\napp.config['SESSION_TYPE'] = 'filesystem'\napp.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=7)  # Make sessions last longer\napp.config['SERVER_NAME'] = os.environ.get(\"BASE_URL\", \"\").replace(\"http://\", \"\").replace(\"https://\", \"\")\n# Make sessions permanent by default\n@app.before_request\ndef make_session_permanent():\n    session.permanent = True\nPOKEAPI_BASE = \"https://pokeapi.co/api/v2\"\nMONGO_URI = os.environ.get(\"MONGO_URI\", \"mongodb://localhost:27017/\")",
         "detail": "app",
         "documentation": {}
     },
@@ -359,7 +367,7 @@
         "kind": 5,
         "importPath": "app",
         "description": "app",
-        "peekOfCode": "app.config['SESSION_TYPE'] = 'filesystem'\napp.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=7)  # Make sessions last longer\n# Make sessions permanent by default\n@app.before_request\ndef make_session_permanent():\n    session.permanent = True\nPOKEAPI_BASE = \"https://pokeapi.co/api/v2\"\nMONGO_URI = os.environ.get(\"MONGO_URI\", \"mongodb://localhost:27017/\")\n# Connect to MongoDB\ntry:",
+        "peekOfCode": "app.config['SESSION_TYPE'] = 'filesystem'\napp.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=7)  # Make sessions last longer\napp.config['SERVER_NAME'] = os.environ.get(\"BASE_URL\", \"\").replace(\"http://\", \"\").replace(\"https://\", \"\")\n# Make sessions permanent by default\n@app.before_request\ndef make_session_permanent():\n    session.permanent = True\nPOKEAPI_BASE = \"https://pokeapi.co/api/v2\"\nMONGO_URI = os.environ.get(\"MONGO_URI\", \"mongodb://localhost:27017/\")\n# Connect to MongoDB",
         "detail": "app",
         "documentation": {}
     },
@@ -368,7 +376,16 @@
         "kind": 5,
         "importPath": "app",
         "description": "app",
-        "peekOfCode": "app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=7)  # Make sessions last longer\n# Make sessions permanent by default\n@app.before_request\ndef make_session_permanent():\n    session.permanent = True\nPOKEAPI_BASE = \"https://pokeapi.co/api/v2\"\nMONGO_URI = os.environ.get(\"MONGO_URI\", \"mongodb://localhost:27017/\")\n# Connect to MongoDB\ntry:\n    print(f\"Attempting to connect to MongoDB at {MONGO_URI}\")",
+        "peekOfCode": "app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=7)  # Make sessions last longer\napp.config['SERVER_NAME'] = os.environ.get(\"BASE_URL\", \"\").replace(\"http://\", \"\").replace(\"https://\", \"\")\n# Make sessions permanent by default\n@app.before_request\ndef make_session_permanent():\n    session.permanent = True\nPOKEAPI_BASE = \"https://pokeapi.co/api/v2\"\nMONGO_URI = os.environ.get(\"MONGO_URI\", \"mongodb://localhost:27017/\")\n# Connect to MongoDB\ntry:",
+        "detail": "app",
+        "documentation": {}
+    },
+    {
+        "label": "app.config['SERVER_NAME']",
+        "kind": 5,
+        "importPath": "app",
+        "description": "app",
+        "peekOfCode": "app.config['SERVER_NAME'] = os.environ.get(\"BASE_URL\", \"\").replace(\"http://\", \"\").replace(\"https://\", \"\")\n# Make sessions permanent by default\n@app.before_request\ndef make_session_permanent():\n    session.permanent = True\nPOKEAPI_BASE = \"https://pokeapi.co/api/v2\"\nMONGO_URI = os.environ.get(\"MONGO_URI\", \"mongodb://localhost:27017/\")\n# Connect to MongoDB\ntry:\n    print(f\"Attempting to connect to MongoDB at {MONGO_URI}\")",
         "detail": "app",
         "documentation": {}
     },
