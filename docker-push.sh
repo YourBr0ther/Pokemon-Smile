@@ -26,19 +26,22 @@ if ! docker info >/dev/null 2>&1; then
   exit 1
 fi
 
-# Build the Docker image
-echo "Building Docker image..."
-docker build -t $DOCKER_USERNAME/$REPO_NAME:$VERSION .
-docker tag $DOCKER_USERNAME/$REPO_NAME:$VERSION $DOCKER_USERNAME/$REPO_NAME:latest
+# Check if Docker Buildx is available
+if ! docker buildx version >/dev/null 2>&1; then
+  echo "Setting up Docker Buildx..."
+  docker buildx create --name multiplatform --use
+fi
+
+# Build multi-platform Docker image
+echo "Building multi-platform Docker image..."
+docker buildx build --platform linux/amd64,linux/arm64 \
+  --tag $DOCKER_USERNAME/$REPO_NAME:$VERSION \
+  --tag $DOCKER_USERNAME/$REPO_NAME:latest \
+  --push .
 
 # Log in to Docker Hub (will prompt for password)
 echo "Logging in to Docker Hub..."
 docker login --username $DOCKER_USERNAME
-
-# Push the images to Docker Hub
-echo "Pushing images to Docker Hub..."
-docker push $DOCKER_USERNAME/$REPO_NAME:$VERSION
-docker push $DOCKER_USERNAME/$REPO_NAME:latest
 
 echo "Successfully pushed $DOCKER_USERNAME/$REPO_NAME:$VERSION to Docker Hub!"
 echo "View your image at: https://hub.docker.com/r/$DOCKER_USERNAME/$REPO_NAME" 
