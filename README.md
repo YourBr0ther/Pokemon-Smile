@@ -7,6 +7,9 @@ A web application inspired by the Pokémon Smile mobile app, designed to make br
 ## Features
 
 - **Interactive Brushing Timer**: A 2-minute timer with animations to guide brushing
+- **Brushing Motion Tracking**: Real-time tracking of hand brushing movements with visual feedback
+- **Brushing Progress Bars**: Visual indicators showing progress for side-to-side and up-and-down brushing
+- **Motion Visualization**: Optional visualization overlay showing brush motion patterns and intensity
 - **Pokémon Catching**: Catch random Pokémon when you complete brushing sessions
 - **Shadow Pokémon Reveal**: Mysterious shadow Pokémon appear at the horizon and gradually reveal themselves
 - **Comprehensive Pokédex**: View all your caught Pokémon with details and cries
@@ -21,6 +24,7 @@ A web application inspired by the Pokémon Smile mobile app, designed to make br
 - **Frontend**: HTML, CSS, JavaScript
 - **Backend**: Python with Flask
 - **Database**: MongoDB
+- **Computer Vision**: JavaScript-based motion detection and analysis
 - **APIs**: PokeAPI for Pokémon data
 - **Audio**: Pokémon cries and background music from various sources
 - **Security**: CORS support for secure cross-origin requests
@@ -84,6 +88,9 @@ For containerized deployment:
 
 ### Brushing Screen
 - Follow the on-screen timer and animations
+- Use the "Show Tracking" button to visualize your brushing motion
+- Monitor your brushing technique with the side-to-side and up-and-down progress bars
+- Aim to fill both progress bars by using proper brushing techniques
 - Brush for the full 2 minutes to catch a Pokémon
 - Watch as the shadow Pokémon gradually reveals itself
 - Your buddy Pokémon will cheer you on from the bottom of the screen
@@ -97,6 +104,10 @@ For containerized deployment:
 
 ## Recent Improvements
 
+- **Brushing Motion Detection**: Added real-time tracking of hand brushing movements
+- **Visual Feedback**: Color-coded motion vectors show brushing direction and intensity
+- **Progress Tracking**: Progress bars for side-to-side and up-and-down brushing techniques
+- **Brushing Statistics**: Capture results include brushing scores for different techniques
 - **Enhanced Buddy Pokémon**: Improved positioning and sizing for better visibility
 - **Shadow Pokémon Animation**: Shadow Pokémon now appear at the horizon with a gradual reveal
 - **Improved Database Connections**: Better error handling for MongoDB connections

@@ -7,6 +7,87 @@
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='brushing.css') }}">
   <link rel="icon" type="image/png" href="{{ url_for('static', filename='favicon.png') }}">
+  <style>
+    /* Motion tracking styles */
+    .motion-indicators {
+      position: absolute;
+      top: 120px;
+      right: 20px;
+      background: rgba(255, 255, 255, 0.8);
+      border-radius: 10px;
+      padding: 10px;
+      z-index: 10;
+      width: 120px;
+      text-align: center;
+      box-shadow: 0 3px 8px rgba(0,0,0,0.2);
+    }
+    
+    .progress-container {
+      margin: 5px 0;
+    }
+    
+    .progress-label {
+      display: block;
+      font-size: 12px;
+      margin-bottom: 2px;
+      font-weight: bold;
+    }
+    
+    .progress-bar {
+      width: 100%;
+      height: 15px;
+      background: #e0e0e0;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    
+    .progress-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #4CAF50, #8BC34A);
+      transition: width 0.3s ease;
+    }
+    
+    .horizontal-fill {
+      background: linear-gradient(90deg, #2196F3, #03A9F4);
+    }
+    
+    .motion-direction {
+      font-size: 14px;
+      margin-top: 5px;
+      font-weight: bold;
+    }
+    
+    /* Hide the processing canvas */
+    #processingCanvas {
+      display: none;
+    }
+    
+    /* Visualization overlay */
+    #visualizationCanvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 5;
+      pointer-events: none; /* Allow click-through */
+    }
+    
+    .debug-toggle {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      background: rgba(0, 0, 0, 0.6);
+      color: white;
+      border: none;
+      border-radius: 5px;
+      padding: 5px 10px;
+      font-size: 12px;
+      cursor: pointer;
+      z-index: 10;
+    }
+  </style>
 </head>
 <body>
   <div class="brushing-screen">
@@ -18,9 +99,33 @@
 
     <!-- Countdown Timer -->
     <div class="timer" id="timer">60</div>
+    
+    <!-- Motion Tracking Indicators -->
+    <div class="motion-indicators">
+      <div class="progress-container">
+        <span class="progress-label">Side-to-Side</span>
+        <div class="progress-bar">
+          <div class="progress-fill horizontal-fill" id="horizontalProgress"></div>
+        </div>
+      </div>
+      <div class="progress-container">
+        <span class="progress-label">Up-and-Down</span>
+        <div class="progress-bar">
+          <div class="progress-fill" id="verticalProgress"></div>
+        </div>
+      </div>
+      <div class="motion-direction" id="motionDirection">No motion</div>
+    </div>
 
     <!-- Camera Placeholder -->
     <div class="camera-placeholder">[ CAMERA FEED HERE ]</div>
+    
+    <!-- Canvas for processing -->
+    <canvas id="processingCanvas" width="320" height="240"></canvas>
+
+    <!-- Debug visualization overlay -->
+    <canvas id="visualizationCanvas"></canvas>
+    <button class="debug-toggle" id="debugToggle">Show Tracking</button>
 
     <!-- Shadow Pokémon Reveal -->
     <div class="shadow-pokemon">
@@ -47,6 +152,36 @@
       const shadowPokemonContainer = document.querySelector(".shadow-pokemon");
       const cameraPlaceholder = document.querySelector(".camera-placeholder");
       const buddySprite = document.getElementById("buddySprite");
+      
+      // Motion tracking elements
+      const processingCanvas = document.getElementById("processingCanvas");
+      const context = processingCanvas.getContext("2d", { willReadFrequently: true });
+      const horizontalProgress = document.getElementById("horizontalProgress");
+      const verticalProgress = document.getElementById("verticalProgress");
+      const motionDirection = document.getElementById("motionDirection");
+      
+      // Visualization elements
+      const visualizationCanvas = document.getElementById("visualizationCanvas");
+      const visContext = visualizationCanvas.getContext("2d");
+      const debugToggle = document.getElementById("debugToggle");
+      let showVisualization = false;
+      
+      // Hand motion tracking variables
+      let video = null;
+      let previousPixels = null;
+      let horizontalMotionCount = 0;
+      let verticalMotionCount = 0;
+      const MOTION_THRESHOLD = 20; // Sensitivity of motion detection
+      const MAX_MOTION_COUNT = 200; // Increased from 50 to make progress slower
+      
+      // Motion history for smoothing
+      let motionHistory = [];
+      const HISTORY_LENGTH = 10;
+      
+      // For visualization
+      let motionVectors = [];
+      
+      let detectedColor = null;
 
       let isPaused = false;
       let mysteryPokemonName = "";
@@ -90,6 +225,7 @@
         startShadowPokemon();
         startBrushingTimer();
         playBackgroundMusic();
+        setupVisualization();
       }
 
       function startCamera() {
@@ -98,7 +234,7 @@
           return;
         }
 
-        const video = document.createElement("video");
+        video = document.createElement("video");
         video.setAttribute("autoplay", "");
         video.setAttribute("playsinline", "");
         video.style.width = "100%";
@@ -108,11 +244,258 @@
         cameraPlaceholder.appendChild(video);
 
         navigator.mediaDevices.getUserMedia({ video: true })
-          .then(stream => video.srcObject = stream)
+          .then(stream => {
+            video.srcObject = stream;
+            // Start hand motion detection after a short delay
+            setTimeout(detectHandMotion, 1000);
+          })
           .catch(err => {
             console.error("Camera error:", err);
             cameraPlaceholder.textContent = "Unable to access camera";
           });
+      }
+      
+      // Main hand motion detection function
+      function detectHandMotion() {
+        if (isPaused || !video) return;
+        
+        // Draw the current video frame on canvas
+        context.drawImage(video, 0, 0, processingCanvas.width, processingCanvas.height);
+        
+        // Get pixel data from current frame
+        const currentPixels = context.getImageData(0, 0, processingCanvas.width, processingCanvas.height);
+        
+        if (previousPixels) {
+          // Calculate motion by comparing current frame with previous frame
+          const { horizontalMotion, verticalMotion, vectors } = calculateMotion(currentPixels.data, previousPixels.data);
+          
+          // Store motion vectors for visualization
+          motionVectors = vectors;
+          
+          // Add to motion history
+          motionHistory.push({ horizontalMotion, verticalMotion });
+          if (motionHistory.length > HISTORY_LENGTH) {
+            motionHistory.shift();
+          }
+          
+          // Update motion indicators with smoothed values
+          updateMotionIndicators();
+          
+          // Draw visualization if enabled
+          if (showVisualization) {
+            drawMotionVisualization();
+          }
+        }
+        
+        // Store current frame for next comparison
+        previousPixels = currentPixels;
+        
+        // Continue detection loop
+        requestAnimationFrame(detectHandMotion);
+      }
+      
+      // Calculate motion between two frames
+      function calculateMotion(currentData, previousData) {
+        let horizontalMotion = 0;
+        let verticalMotion = 0;
+        let vectors = [];
+        
+        // Sample pixels at regular intervals (analyzing every pixel is too expensive)
+        const sampleSize = 16;
+        const width = processingCanvas.width;
+        const height = processingCanvas.height;
+        
+        // Focus on the central portion of the frame where hand is likely to be
+        const startX = Math.floor(width * 0.2);
+        const endX = Math.floor(width * 0.8);
+        const startY = Math.floor(height * 0.2);
+        const endY = Math.floor(height * 0.8);
+        
+        // Compare pixels and calculate differences
+        for (let y = startY; y < endY; y += sampleSize) {
+          for (let x = startX; x < endX; x += sampleSize) {
+            const pixelIndex = (y * width + x) * 4; // RGBA (4 channels)
+            
+            // Calculate difference between current and previous frame
+            const rdiff = Math.abs(currentData[pixelIndex] - previousData[pixelIndex]);
+            const gdiff = Math.abs(currentData[pixelIndex + 1] - previousData[pixelIndex + 1]);
+            const bdiff = Math.abs(currentData[pixelIndex + 2] - previousData[pixelIndex + 2]);
+            
+            // Average difference
+            const diff = (rdiff + gdiff + bdiff) / 3;
+            
+            // Only consider significant motion
+            if (diff > MOTION_THRESHOLD) {
+              // Determine direction by checking adjacent pixels
+              let dx = 0, dy = 0;
+              
+              // Check horizontal neighbors
+              if (x > startX && x < endX - sampleSize) {
+                const leftIndex = (y * width + (x - sampleSize)) * 4;
+                const rightIndex = (y * width + (x + sampleSize)) * 4;
+                const leftDiff = Math.abs(currentData[leftIndex] - previousData[leftIndex]) +
+                                Math.abs(currentData[leftIndex+1] - previousData[leftIndex+1]) +
+                                Math.abs(currentData[leftIndex+2] - previousData[leftIndex+2]);
+                const rightDiff = Math.abs(currentData[rightIndex] - previousData[rightIndex]) +
+                                 Math.abs(currentData[rightIndex+1] - previousData[rightIndex+1]) +
+                                 Math.abs(currentData[rightIndex+2] - previousData[rightIndex+2]);
+                
+                dx = rightDiff - leftDiff;
+              }
+              
+              // Check vertical neighbors
+              if (y > startY && y < endY - sampleSize) {
+                const topIndex = ((y - sampleSize) * width + x) * 4;
+                const bottomIndex = ((y + sampleSize) * width + x) * 4;
+                const topDiff = Math.abs(currentData[topIndex] - previousData[topIndex]) +
+                              Math.abs(currentData[topIndex+1] - previousData[topIndex+1]) +
+                              Math.abs(currentData[topIndex+2] - previousData[topIndex+2]);
+                const bottomDiff = Math.abs(currentData[bottomIndex] - previousData[bottomIndex]) +
+                                 Math.abs(currentData[bottomIndex+1] - previousData[bottomIndex+1]) +
+                                 Math.abs(currentData[bottomIndex+2] - previousData[bottomIndex+2]);
+                
+                dy = bottomDiff - topDiff;
+              }
+              
+              // Normalize and scale vectors for visualization
+              const magnitude = Math.sqrt(dx * dx + dy * dy);
+              if (magnitude > 0) {
+                dx = dx / magnitude * Math.min(diff / 5, 15);
+                dy = dy / magnitude * Math.min(diff / 5, 15);
+              }
+              
+              vectors.push({
+                x: x,
+                y: y,
+                dx: dx,
+                dy: dy,
+                intensity: diff
+              });
+              
+              // Count horizontal and vertical motion
+              horizontalMotion += Math.abs(dx) * diff;
+              verticalMotion += Math.abs(dy) * diff;
+            }
+          }
+        }
+        
+        return { horizontalMotion, verticalMotion, vectors };
+      }
+      
+      // Update the visual indicators based on detected motion
+      function updateMotionIndicators() {
+        // Calculate average motion over history for smoothing
+        let avgHorizontalMotion = 0;
+        let avgVerticalMotion = 0;
+        
+        motionHistory.forEach(motion => {
+          avgHorizontalMotion += motion.horizontalMotion;
+          avgVerticalMotion += motion.verticalMotion;
+        });
+        
+        avgHorizontalMotion /= motionHistory.length;
+        avgVerticalMotion /= motionHistory.length;
+        
+        // Determine dominant motion direction
+        if (avgHorizontalMotion > 500 || avgVerticalMotion > 500) {
+          if (avgHorizontalMotion > avgVerticalMotion * 1.5) {
+            // Horizontal motion is dominant
+            motionDirection.textContent = "Side-to-Side!";
+            horizontalMotionCount = Math.min(horizontalMotionCount + 0.25, MAX_MOTION_COUNT);
+          } else if (avgVerticalMotion > avgHorizontalMotion * 1.5) {
+            // Vertical motion is dominant
+            motionDirection.textContent = "Up-and-Down!";
+            verticalMotionCount = Math.min(verticalMotionCount + 0.25, MAX_MOTION_COUNT);
+          } else {
+            // Mixed motion
+            motionDirection.textContent = "Mixed Motion";
+            horizontalMotionCount = Math.min(horizontalMotionCount + 0.12, MAX_MOTION_COUNT);
+            verticalMotionCount = Math.min(verticalMotionCount + 0.12, MAX_MOTION_COUNT);
+          }
+        } else {
+          // No significant motion
+          motionDirection.textContent = "Keep Brushing!";
+        }
+        
+        // Update progress bars
+        horizontalProgress.style.width = `${(horizontalMotionCount / MAX_MOTION_COUNT) * 100}%`;
+        verticalProgress.style.width = `${(verticalMotionCount / MAX_MOTION_COUNT) * 100}%`;
+      }
+      
+      // Draw motion visualization on overlay canvas
+      function drawMotionVisualization() {
+        // Resize canvas if needed
+        if (visualizationCanvas.width !== cameraPlaceholder.offsetWidth) {
+          visualizationCanvas.width = cameraPlaceholder.offsetWidth;
+          visualizationCanvas.height = cameraPlaceholder.offsetHeight;
+        }
+        
+        // Clear previous drawing
+        visContext.clearRect(0, 0, visualizationCanvas.width, visualizationCanvas.height);
+        
+        // Calculate scale factors from processing canvas to visualization canvas
+        const scaleX = visualizationCanvas.width / processingCanvas.width;
+        const scaleY = visualizationCanvas.height / processingCanvas.height;
+        
+        // Draw central focus region
+        const width = processingCanvas.width;
+        const height = processingCanvas.height;
+        const startX = Math.floor(width * 0.2);
+        const endX = Math.floor(width * 0.8);
+        const startY = Math.floor(height * 0.2);
+        const endY = Math.floor(height * 0.8);
+        
+        visContext.strokeStyle = 'rgba(255, 255, 0, 0.5)';
+        visContext.lineWidth = 2;
+        visContext.strokeRect(
+          startX * scaleX,
+          startY * scaleY,
+          (endX - startX) * scaleX,
+          (endY - startY) * scaleY
+        );
+        
+        // Draw info text at the top
+        visContext.fillStyle = "rgba(0, 0, 0, 0.5)";
+        visContext.fillRect(10, 10, 200, 30);
+        visContext.fillStyle = "white";
+        visContext.font = "12px Arial";
+        visContext.fillText("Tracking hand brushing motion", 15, 30);
+        
+        // Draw motion vectors
+        motionVectors.forEach(vector => {
+          // Scale coordinates to fit visualization canvas
+          const x = vector.x * scaleX;
+          const y = vector.y * scaleY;
+          
+          // Draw vector
+          visContext.beginPath();
+          visContext.moveTo(x, y);
+          visContext.lineTo(x + vector.dx * scaleX, y + vector.dy * scaleY);
+          
+          // Determine color based on dominant direction
+          const absX = Math.abs(vector.dx);
+          const absY = Math.abs(vector.dy);
+          
+          if (absX > absY * 1.5) {
+            // Horizontal motion - blue
+            visContext.strokeStyle = 'rgba(0, 128, 255, 0.8)';
+          } else if (absY > absX * 1.5) {
+            // Vertical motion - green
+            visContext.strokeStyle = 'rgba(0, 255, 128, 0.8)';
+          } else {
+            // Mixed motion - purple
+            visContext.strokeStyle = 'rgba(255, 0, 255, 0.8)';
+          }
+          
+          visContext.lineWidth = Math.min(vector.intensity / 15, 3);
+          visContext.stroke();
+          
+          // Draw point at vector start
+          visContext.beginPath();
+          visContext.arc(x, y, 2, 0, Math.PI * 2);
+          visContext.fillStyle = 'rgba(255, 255, 255, 0.7)';
+          visContext.fill();
+        });
       }
 
       function startShadowPokemon() {
@@ -134,6 +517,8 @@
                 mysteryPokemonGeneration = generation;
                 shadowPokemon.src = sprite;
                 shadowPokemon.alt = "Mystery Pokémon";
+                // Remove the manual positioning that's overriding CSS
+                // Let CSS handle the initial position at the horizon
               });
           })
           .catch(err => console.error("Shadow Pokémon error:", err));
@@ -164,7 +549,21 @@
             shadowPokemonContainer.style.top = "55vh"; // Final position slightly above horizon
             shadowPokemon.style.filter = "brightness(1)";
             timerElement.textContent = "Done!";
-            setTimeout(startCaptureSequence, 1000);
+            
+            // Get the final brushing stats
+            const horizontalScore = Math.floor((horizontalMotionCount / MAX_MOTION_COUNT) * 100);
+            const verticalScore = Math.floor((verticalMotionCount / MAX_MOTION_COUNT) * 100);
+            
+            // Store these scores for later display or saving
+            const brushingStats = {
+              horizontalScore,
+              verticalScore,
+              totalScore: Math.floor((horizontalScore + verticalScore) / 2)
+            };
+            
+            console.log("Brushing Stats:", brushingStats);
+            
+            setTimeout(() => startCaptureSequence(brushingStats), 1000);
           }
         }, 1000);
       }
@@ -175,7 +574,7 @@
         document.querySelector(".buddy-pokemon").style.animationPlayState = isPaused ? "paused" : "running";
       });
 
-      function startCaptureSequence() {
+      function startCaptureSequence(brushingStats) {
         const buddy = document.querySelector(".buddy-pokemon");
         if (buddy) buddy.style.display = "none";
 
@@ -201,14 +600,15 @@
             pokeball.style.animation = "wiggle 0.4s ease-in-out 3 alternate";
             setTimeout(() => {
               pokeball.style.animation = "none";
-              saveCaughtPokemon();
-              if (!document.querySelector(".capture-popup")) showCapturePopup();
+              // Add the brushing stats to the Pokémon data
+              saveCaughtPokemon(brushingStats);
+              if (!document.querySelector(".capture-popup")) showCapturePopup(brushingStats);
             }, 1500);
           }, 500);
         });
       }
 
-      function saveCaughtPokemon() {
+      function saveCaughtPokemon(brushingStats) {
         if (!activeProfile?._id) {
           console.warn("No active profile for saving Pokémon");
           return;
@@ -218,7 +618,8 @@
           name: mysteryPokemonName,
           sprite: shadowPokemon.src,
           types: mysteryPokemonTypes,
-          generation: mysteryPokemonGeneration
+          generation: mysteryPokemonGeneration,
+          brushing: brushingStats // Add brushing stats to the saved Pokémon
         };
 
         console.log("Saving Pokémon:", newPokemon);
@@ -248,7 +649,7 @@
         });
       }
 
-      function showCapturePopup() {
+      function showCapturePopup(brushingStats) {
         const popup = document.createElement("div");
         popup.className = "capture-popup";
         popup.style.cssText = `
@@ -270,6 +671,14 @@
           <img src="${shadowPokemon.src}" alt="${mysteryPokemonName}" style="width: 100px; height: auto; image-rendering: pixelated;">
           <p>Type: ${mysteryPokemonTypes.join(", ")}</p>
           <p>Generation: ${mysteryPokemonGeneration}</p>
+          
+          <div style="margin-top: 15px; border-top: 1px solid #eee; padding-top: 15px;">
+            <h3 style="font-family: var(--title-font); font-weight: 600;">Brushing Score</h3>
+            <p>Side-to-Side: ${brushingStats.horizontalScore}%</p>
+            <p>Up-and-Down: ${brushingStats.verticalScore}%</p>
+            <p style="font-weight: bold; font-size: 18px;">Total Score: ${brushingStats.totalScore}%</p>
+          </div>
+          
           <button class="ok-btn" style="
             margin-top: 20px; 
             padding: 10px 20px; 
@@ -311,6 +720,20 @@
           100% { transform: translateX(-50%) rotate(0deg); }
         }`;
       document.head.appendChild(wiggleStyle);
+
+      // Toggle debug visualization
+      debugToggle.addEventListener("click", () => {
+        showVisualization = !showVisualization;
+        debugToggle.textContent = showVisualization ? "Hide Tracking" : "Show Tracking";
+        visualizationCanvas.style.display = showVisualization ? "block" : "none";
+      });
+      
+      // Initialize visualization canvas size
+      function setupVisualization() {
+        visualizationCanvas.width = cameraPlaceholder.offsetWidth;
+        visualizationCanvas.height = cameraPlaceholder.offsetHeight;
+        visualizationCanvas.style.display = "none"; // Hidden by default
+      }
 
       initBrushingApp();
     });
