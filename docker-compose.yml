@@ -1,7 +1,7 @@
 version: '3'
 services:
   web:
-    build: .
+    image: yourbr0ther/pokemon-smile:latest
     ports:
       - "5000:5000"
     env_file:
@@ -11,6 +11,7 @@ services:
     volumes:
       - ./static:/app/static
       - ./templates:/app/templates
+      - ./data:/app/data
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5000/"]
@@ -19,7 +20,7 @@ services:
       retries: 3
       start_period: 40s
   mongo:
-    image: mongo
+    image: mongo:latest
     ports:
       - "27017:27017"
     volumes:
@@ -34,3 +35,4 @@ services:
 
 volumes:
   mongo_data:
+    driver: local
