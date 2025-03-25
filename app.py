@@ -10,13 +10,16 @@ from bson.objectid import ObjectId
 import sys
 from datetime import datetime, timedelta
 import json
+from flask_cors import CORS
 
 load_dotenv()
 
 app = Flask(__name__)
+CORS(app)  # Add CORS support to allow cross-origin requests
 app.secret_key = os.environ.get("SECRET_KEY", secrets.token_hex(16))
 app.config['SESSION_TYPE'] = 'filesystem'
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=7)  # Make sessions last longer
+app.config['SERVER_NAME'] = os.environ.get("BASE_URL", "").replace("http://", "").replace("https://", "")
 
 # Make sessions permanent by default
 @app.before_request
@@ -228,30 +231,48 @@ def load_profile(name):
 def save_pokemon(profile_name):
     data = request.json
     
+    # Add more detailed logging
+    print(f"POST /api/save_pokemon/{profile_name}")
+    print(f"Request data: {data}")
+    print(f"Session data: {session}")
+    
     # Only save if user is logged in
     if 'user_id' in session:
         user_id = session['user_id']
         try:
             if not isinstance(user_id, ObjectId):
                 user_id = ObjectId(user_id)
-        except:
-            pass
+        except Exception as e:
+            print(f"Error converting user_id to ObjectId: {e}")
+            return jsonify({"status": "error", "message": "Invalid user ID format"}), 400
             
         # Log the save attempt for debugging
         print(f"Attempting to save Pokémon for user_id: {user_id}")
         print(f"Pokémon data: {data}")
         
-        result = profiles_collection.update_one(
-            {"_id": user_id},
-            {"$push": {"caught_pokemon": data}}
-        )
-        
-        # Check if the update was successful
-        if result.modified_count > 0:
-            print(f"Successfully saved Pokémon to database")
-        else:
-            print(f"Failed to save Pokémon. User not found or no changes made.")
-            return jsonify({"status": "error", "message": "Failed to save Pokémon"}), 400
+        try:
+            # First check if the user profile exists
+            profile = profiles_collection.find_one({"_id": user_id})
+            if not profile:
+                print(f"Profile not found for user_id: {user_id}")
+                return jsonify({"status": "error", "message": "User profile not found"}), 404
+            
+            # Now update with the new Pokemon
+            result = profiles_collection.update_one(
+                {"_id": user_id},
+                {"$push": {"caught_pokemon": data}}
+            )
+            
+            # Check if the update was successful
+            if result.modified_count > 0:
+                print(f"Successfully saved Pokémon to database")
+                return jsonify({"status": "success", "message": "Pokémon saved successfully"})
+            else:
+                print(f"No changes made to database. This might be expected behavior if the document didn't change.")
+                return jsonify({"status": "success", "message": "No changes made"}), 200
+        except Exception as e:
+            print(f"Database error when saving Pokémon: {e}")
+            return jsonify({"status": "error", "message": f"Database error: {str(e)}"}), 500
     else:
         print("User not logged in when trying to save Pokémon")
         return jsonify({"status": "error", "message": "Not logged in"}), 401

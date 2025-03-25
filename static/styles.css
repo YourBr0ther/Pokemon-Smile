@@ -173,102 +173,79 @@ body::before {
   font-size: 0.9rem;
 }
 
-/* Bottom wave and character */
+/* Bottom Wave and Character */
 .bottom-wave {
   position: fixed;
   bottom: 0;
   left: 0;
   width: 100%;
-  height: 150px;
-  background-color: #4fd4e4;
-  border-top: 3px solid #333;
-  z-index: 1; /* Keep this low */
+  height: 120px;
+  background: linear-gradient(to bottom, #5dd6e2 0%, #4fd4e4 100%);
+  z-index: 40;
 }
 
-/* Buddy container with higher z-index */
 .bottom-pokemon {
-  position: fixed;
-  bottom: 70px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 20; /* Increased z-index to be above the wave */
-  width: 200px;
-  height: 200px;
-  display: block;
-  pointer-events: auto;
-}
-
-/* Buddy image with even higher z-index */
-#buddySprite {
   position: absolute;
-  bottom: 0;
+  bottom: 120px;
   left: 50%;
   transform: translateX(-50%);
-  width: 150px;
-  height: 150px;
-  object-fit: contain;
-  image-rendering: pixelated;
-  z-index: 21; /* Higher than container */
+  text-align: center;
+  z-index: 50;
+  width: 300px; /* Match with the image width */
 }
 
-/* Speech bubble with highest z-index */
 .speech-bubble {
-  position: absolute;
-  top: -50px;
-  left: 50%;
-  transform: translateX(-50%);
-  background-color: white;
-  border: 3px solid #333;
+  position: relative;
+  background: #fff;
   border-radius: 20px;
-  padding: 10px 20px;
-  font-weight: bold;
-  white-space: nowrap;
-  box-shadow: 0 4px 0 #333;
-  z-index: 22; /* Higher than buddy */
+  padding: 10px 15px;
+  font-weight: 600;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+  margin-bottom: 2px;
+  display: inline-block;
+  z-index: 51;
 }
 
-/* Add speech bubble arrow */
 .speech-bubble:after {
   content: '';
   position: absolute;
-  bottom: -15px;
+  bottom: -8px;
   left: 50%;
   transform: translateX(-50%);
-  border-width: 15px 15px 0;
+  border-width: 8px 8px 0;
   border-style: solid;
   border-color: white transparent transparent;
-  z-index: 1;
 }
 
-.speech-bubble:before {
-  content: '';
-  position: absolute;
-  bottom: -20px;
-  left: 50%;
-  transform: translateX(-50%);
-  border-width: 18px 18px 0;
-  border-style: solid;
-  border-color: #333 transparent transparent;
-  z-index: 0;
+.bottom-pokemon img {
+  width: 300px;
+  height: auto;
+  display: block;
+  margin: 0 auto;
+  image-rendering: pixelated;
+  image-rendering: -moz-crisp-edges;
+  image-rendering: crisp-edges;
+  border: none;
+  outline: none;
 }
 
-/* Animation classes */
-.float {
-  animation: float 3s ease-in-out infinite;
-}
-
+/* Animation for buddy */
 @keyframes float {
-  0%, 100% { transform: translateX(-50%) translateY(0); }
-  50% { transform: translateX(-50%) translateY(-10px); }
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+.float {
+  animation: float 2s ease-in-out infinite;
+}
+
+@keyframes jump-animation {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-30px); }
 }
 
 .jump-animation {
-  animation: jump 0.5s ease;
-}
-
-@keyframes jump {
-  0%, 100% { transform: translateX(-50%) translateY(0); }
-  50% { transform: translateX(-50%) translateY(-30px); }
+  animation: jump-animation 0.5s ease-in-out;
 }
 
 /* Settings button */
@@ -285,7 +262,7 @@ body::before {
   justify-content: center;
   align-items: center;
   box-shadow: 0 4px 0 #333;
-  z-index: 3;
+  z-index: 60;
   transition: transform 0.2s, box-shadow 0.2s;
 }
 
@@ -313,7 +290,7 @@ body::before {
   justify-content: center;
   align-items: center;
   box-shadow: 0 4px 0 #333;
-  z-index: 3;
+  z-index: 60;
   transition: transform 0.2s, box-shadow 0.2s;
   font-size: 1.5rem;
 }
@@ -358,8 +335,8 @@ body::before {
   }
   
   .bottom-pokemon img {
-    width: 120px;
-    height: 120px;
+    width: 200px;
+    height: auto;
   }
   
   .speech-bubble {
@@ -547,9 +524,10 @@ h1, h2, h3, h4, h5, h6 {
   display: flex;
   flex-direction: column;
   align-items: center;
-  z-index: 0;
+  z-index: 50;
   pointer-events: auto;
   image-rendering: crisp-edges;
+  width: 300px; /* Match with the image width */
 }
 
 .bottom-pokemon img.float {
@@ -557,11 +535,10 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .bottom-pokemon img {
-  width: 160px;
+  width: 300px;
   height: auto;
   image-rendering: pixelated;
   image-rendering: crisp-edges;
-  animation: float 2s ease-in-out infinite;
 }
 
 .bottom-pokemon img.jump-animation {

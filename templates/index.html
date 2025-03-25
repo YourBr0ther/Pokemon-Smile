@@ -279,13 +279,14 @@ function saveSettingChanges() {
         menuMusic.volume = 0.6;
         
         // Choose a random track
-        const tracks = [
-          '/static/music/BGM Menu 01.mp3',
-          '/static/music/BGM Menu 02.mp3',
-          '/static/music/BGM Menu 03.mp3',
-          '/static/music/BGM Menu 04.mp3'
+        const bgMusicTracks = [
+          '/static/music/BGM Main 01.mp3',
+          '/static/music/BGM Main 02.mp3',
+          '/static/music/BGM Main 03.mp3',
+          '/static/music/BGM Main 04.mp3',
+          '/static/music/BGM Main 05.mp3'
         ];
-        menuMusic.src = tracks[Math.floor(Math.random() * tracks.length)];
+        menuMusic.src = bgMusicTracks[Math.floor(Math.random() * bgMusicTracks.length)];
       }
       
       if (isMusicPlaying) {
@@ -359,87 +360,47 @@ function saveSettingChanges() {
       buddySprite.style.visibility = "visible";
       buddySprite.style.opacity = "1";
       
-      // Add a border for debugging
-      buddySprite.style.border = "2px solid red";
-      
       // Fix layout issues with buddy Pokémon
       async function fixLayout() {
         const buddySprite = document.getElementById('buddySprite');
         const buddyNameBubble = document.getElementById('buddyNameBubble');
         const bottomPokemon = document.querySelector('.bottom-pokemon');
         
-        // First, make sure the container is properly positioned
-        bottomPokemon.style.position = 'fixed';
-        bottomPokemon.style.bottom = '60px';
+        // Position the container to be truly centered
+        bottomPokemon.style.position = 'absolute';
+        bottomPokemon.style.bottom = '100px';
         bottomPokemon.style.left = '50%';
         bottomPokemon.style.transform = 'translateX(-50%)';
         bottomPokemon.style.zIndex = '50';
-        bottomPokemon.style.width = '250px';
-        bottomPokemon.style.height = '250px';
+        bottomPokemon.style.width = '300px'; // Match the image width
         bottomPokemon.style.display = 'flex';
         bottomPokemon.style.flexDirection = 'column';
-        bottomPokemon.style.alignItems = 'center'; // Center horizontally
-        bottomPokemon.style.justifyContent = 'flex-end'; // Align to bottom
+        bottomPokemon.style.alignItems = 'center';
+        bottomPokemon.style.justifyContent = 'center';
+        bottomPokemon.style.textAlign = 'center';
         
         // Position the speech bubble
-        buddyNameBubble.style.position = 'absolute';
-        buddyNameBubble.style.top = '0';
-        buddyNameBubble.style.left = '50%';
-        buddyNameBubble.style.transform = 'translateX(-50%)';
-        buddyNameBubble.style.marginBottom = '0';
+        buddyNameBubble.style.position = 'relative';
+        buddyNameBubble.style.marginBottom = '2px';
         buddyNameBubble.style.zIndex = '51';
         buddyNameBubble.style.whiteSpace = 'nowrap';
         
-        // Add speech bubble arrow
-        if (!buddyNameBubble.dataset.arrowAdded) {
-          buddyNameBubble.style.position = 'relative';
-          
-          // Create after pseudo-element for white arrow
-          const style = document.createElement('style');
-          style.textContent = `
-            #buddyNameBubble:after {
-              content: '';
-              position: absolute;
-              bottom: -15px;
-              left: 50%;
-              transform: translateX(-50%);
-              border-width: 15px 15px 0;
-              border-style: solid;
-              border-color: white transparent transparent;
-              z-index: 1;
-            }
-            
-            #buddyNameBubble:before {
-              content: '';
-              position: absolute;
-              bottom: -20px;
-              left: 50%;
-              transform: translateX(-50%);
-              border-width: 18px 18px 0;
-              border-style: solid;
-              border-color: #333 transparent transparent;
-              z-index: 0;
-            }
-          `;
-          document.head.appendChild(style);
-          buddyNameBubble.dataset.arrowAdded = 'true';
-        }
-        
         // Position the buddy sprite
-        buddySprite.style.position = 'static'; // Changed from relative to static
-        buddySprite.style.margin = '0 auto'; // Center horizontally
-        buddySprite.style.display = 'block'; // Ensure block display
+        buddySprite.style.display = 'block';
+        buddySprite.style.margin = '0 auto';
+        buddySprite.style.width = '300px';
+        buddySprite.style.height = 'auto';
+        buddySprite.style.position = 'relative';
         buddySprite.style.zIndex = '52';
-        buddySprite.style.width = '180px';
-        buddySprite.style.height = '180px';
-        buddySprite.style.marginTop = '20px';
+        buddySprite.style.imageRendering = 'pixelated';
+        buddySprite.style.imageRendering = 'crisp-edges';
+        buddySprite.style.left = '0'; // Reset left position
         
-        // Remove any transforms that might be affecting centering
+        // Remove any transforms that might be affecting position
         buddySprite.style.transform = 'none';
-        buddySprite.style.left = 'auto';
         buddySprite.style.right = 'auto';
         
-        // Add animation class
+        // Make sure float animation is applied
         if (!buddySprite.classList.contains('float')) {
           buddySprite.classList.add('float');
         }

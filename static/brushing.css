@@ -126,12 +126,19 @@ button {
 /* Shadow Pokémon fade reveal */
 .shadow-pokemon {
   position: absolute;
-  bottom: 180px;
+  bottom: auto;
+  top: 65vh; /* Position at the horizon line */
   left: 50%;
   transform: translateX(-50%);
   z-index: 4;
   opacity: 0;
-  transition: opacity 1s linear;
+  transition: opacity 1s linear, top 1.5s ease-in-out;
+  animation: shadowFloat 4s ease-in-out infinite alternate;
+}
+
+@keyframes shadowFloat {
+  0% { transform: translateX(-52%); }
+  100% { transform: translateX(-48%); }
 }
 
 .shadow-pokemon img {
@@ -139,12 +146,14 @@ button {
   height: auto;
   transform: scale(1.5);
   image-rendering: pixelated;
+  filter: brightness(0.3) sepia(1) hue-rotate(270deg) saturate(3);
+  transition: filter 1.5s linear;
 }
 
 /* Buddy Pokémon bouncing walk */
 .buddy-pokemon {
   position: absolute;
-  bottom: 80px;
+  bottom: 10px;
   left: 0;
   z-index: 3;
   animation: buddyWalk 6s ease-in-out infinite alternate;
