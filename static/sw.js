@@ -5,7 +5,6 @@ const urlsToCache = [
   '/static/script.js',
   '/static/manifest.json',
   '/favicon.ico',
-  '/login',
   '/pokedex',
   '/brushing'
 ];

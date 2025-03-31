@@ -1,4 +1,3 @@
-version: '3'
 services:
   web:
     image: yourbr0ther/pokemon-smile:latest

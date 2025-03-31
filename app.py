@@ -97,31 +97,6 @@ def main_menu():
 # -------------------
 # AUTH ROUTES
 # -------------------
-@app.route('/login', methods=['GET', 'POST'])
-def login():
-    # Get the next page to redirect to after login
-    next_page = request.args.get('next', '')
-    
-    if request.method == 'POST':
-        username = request.form.get('username')
-        password = request.form.get('password')
-        
-        # Find user in database
-        user = profiles_collection.find_one({"name": username, "password": password})
-        
-        if user:
-            # Convert ObjectId to string before storing in session
-            session['user_id'] = str(user['_id'])
-            
-            # Redirect to next page if specified, otherwise to main menu
-            if next_page:
-                return redirect(url_for(next_page))
-            return redirect(url_for('main_menu'))
-        else:
-            return render_template('login.html', error="Invalid username or password", next=next_page)
-    
-    return render_template('login.html', next=next_page)
-
 @app.route('/logout')
 def logout():
     session.pop('user_id', None)
@@ -134,8 +109,8 @@ def logout():
 def pokedex():
     # Check if user is logged in
     if 'user_id' not in session:
-        # Redirect to login if not logged in
-        return redirect(url_for('login', next='pokedex'))
+        # Return to main menu - the profile selection popup will appear automatically
+        return redirect(url_for('main_menu'))
     
     return render_template('pokedex.html')
 
@@ -146,8 +121,8 @@ def pokedex():
 def brushing():
     # Check if user is logged in
     if 'user_id' not in session:
-        # Redirect to login if not logged in
-        return redirect(url_for('login', next='brushing'))
+        # Return to main menu - the profile selection popup will appear automatically
+        return redirect(url_for('main_menu'))
     
     return render_template('brushing.html')
 
@@ -169,7 +144,21 @@ def save_profile():
                 profile_id = ObjectId(profile_data['_id'])
             else:
                 profile_id = profile_data['_id']
-                
+            
+            # Get the existing profile
+            existing_profile = profiles_collection.find_one({"_id": profile_id})
+            if not existing_profile:
+                return jsonify({"status": "error", "message": "Profile not found"}), 404
+            
+            # Handle password change if requested
+            if 'currentPassword' in profile_data and 'newPassword' in profile_data:
+                if existing_profile['password'] != profile_data['currentPassword']:
+                    return jsonify({"status": "error", "message": "Current password is incorrect"}), 400
+                profile_data['password'] = profile_data['newPassword']
+                # Remove the temporary password fields
+                del profile_data['currentPassword']
+                del profile_data['newPassword']
+            
             # Remove _id from the update data
             update_data = {k: v for k, v in profile_data.items() if k != '_id'}
             
@@ -208,6 +197,9 @@ def save_profile():
             # Insert the new profile
             result = profiles_collection.insert_one(profile_data)
             profile_data['_id'] = str(result.inserted_id)
+            
+            # Set the user_id in session for immediate login
+            session['user_id'] = str(result.inserted_id)
             
             print(f"Created new profile with ID: {result.inserted_id}")
             return jsonify({"status": "success", "message": "Profile created", "profile": profile_data})
@@ -306,21 +298,45 @@ def get_pokedex():
 
 @app.route('/api/get_profiles')
 def get_profiles():
-    if 'user_id' in session:
-        user_id = session['user_id']
-        try:
-            if not isinstance(user_id, ObjectId):
-                user_id = ObjectId(user_id)
-        except:
-            pass
-            
-        profile = profiles_collection.find_one({"_id": user_id})
-        if profile:
-            # Convert ObjectId to string for JSON serialization
-            profile['_id'] = str(profile['_id'])
-            return jsonify([profile])
-    
-    return jsonify([])
+    try:
+        print("\n=== GET /api/get_profiles ===")
+        print("Fetching all profiles from MongoDB...")
+        
+        # Get all profiles from the database
+        profiles = list(profiles_collection.find())
+        print(f"Found {len(profiles)} profiles in database")
+        
+        # Convert ObjectId to string for JSON serialization
+        serialized_profiles = []
+        for profile in profiles:
+            try:
+                profile_copy = profile.copy()
+                profile_copy['_id'] = str(profile['_id'])
+                
+                # Validate required fields
+                if not profile_copy.get('name'):
+                    print(f"Warning: Profile {profile_copy['_id']} missing name field")
+                    continue
+                    
+                if not profile_copy.get('buddyPokemon'):
+                    print(f"Warning: Profile {profile_copy['_id']} missing buddyPokemon field")
+                    continue
+                    
+                if not profile_copy.get('password'):
+                    print(f"Warning: Profile {profile_copy['_id']} missing password field")
+                    continue
+                
+                serialized_profiles.append(profile_copy)
+                print(f"Profile processed: {profile_copy.get('name')} with buddy {profile_copy.get('buddyPokemon', {}).get('name')}")
+            except Exception as e:
+                print(f"Error processing profile {profile.get('_id')}: {e}")
+                continue
+        
+        print(f"Returning {len(serialized_profiles)} serialized profiles")
+        return jsonify(serialized_profiles)
+    except Exception as e:
+        print(f"Error getting profiles: {e}")
+        return jsonify([])
 
 @app.route('/api/active_profile')
 def get_active_profile():

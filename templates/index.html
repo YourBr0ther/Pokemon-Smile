@@ -58,9 +58,9 @@
         <img src="{{ url_for('static', filename='images/pikachu-ears.svg') }}" alt="Hats">
         <span>Hats</span>
       </a>
-      <a href="/login" class="secondary-action login">
-        <img src="{{ url_for('static', filename='images/user.svg') }}" alt="Login">
-        <span>Login</span>
+      <a href="#" class="secondary-action profile" onclick="toggleProfilePopup()">
+        <img src="{{ url_for('static', filename='images/user.svg') }}" alt="Profile">
+        <span>{% if logged_in %}Profile{% else %}Select Profile{% endif %}</span>
       </a>
     </div>
   </div>
@@ -119,17 +119,47 @@
   <!-- Profile Selection Popup -->
   <div class="popup-overlay" id="profilePopup" style="display:none;">
     <div class="popup-box">
-      <h2>Create a Profile</h2>
-      <input type="text" id="kidName" placeholder="Your Name"><br>
-      <input type="password" id="password" placeholder="Create a Password"><br><br>
-      <input type="text" id="pokemonSearch" placeholder="Buddy Pokémon Name">
-      <button onclick="searchPokemon()">Search</button>
-      <div id="pokemonResult" style="margin-top: 20px;"></div>
-      <br>
-      <button onclick="saveProfile()">OK</button>
-      <button onclick="closeProfilePopup()">Cancel</button>
-      <hr>
-      <p>Already have a profile? <a href="/login">Login here</a></p>
+      <h2>👤 Select Profile</h2>
+      
+      <div class="existing-profiles">
+        <div id="existingProfilesList" class="profiles-list"></div>
+      </div>
+
+      <div class="popup-buttons">
+        <button class="popup-button" onclick="toggleCreateProfile()">Create New Profile</button>
+        <button class="popup-button back-btn" onclick="closeProfilePopup()">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Create Profile Popup -->
+  <div class="popup-overlay" id="createProfilePopup" style="display:none;">
+    <div class="popup-box">
+      <h2>✨ Create a Profile</h2>
+      
+      <div class="form-group">
+        <label for="kidName">Name:</label>
+        <input type="text" id="kidName" class="form-input" placeholder="Your Name">
+      </div>
+      
+      <div class="form-group">
+        <label for="password">Password:</label>
+        <input type="password" id="password" class="form-input" placeholder="Create a Password">
+      </div>
+      
+      <div class="form-group">
+        <label>Choose Buddy Pokémon:</label>
+        <div class="search-container">
+          <input type="text" id="pokemonSearch" class="form-input" placeholder="Buddy Pokémon Name">
+          <button onclick="searchPokemon()" class="search-button">🔍</button>
+        </div>
+        <div id="pokemonResult" class="pokemon-result"></div>
+      </div>
+      
+      <div class="popup-buttons">
+        <button class="popup-button" onclick="saveProfile()">Create Profile</button>
+        <button class="popup-button back-btn" onclick="closeCreateProfile()">Cancel</button>
+      </div>
     </div>
   </div>
 
@@ -147,6 +177,50 @@
         <li>📔 You'll see your caught Pokémon in the Pokédex!</li>
       </ul>
       <button onclick="toggleHelpPopup()">Got it!</button>
+    </div>
+  </div>
+
+  <!-- Profile Management Popup -->
+  <div class="popup-overlay" id="profileManagePopup" style="display:none;">
+    <div class="popup-box">
+      <h2>👤 Profile Settings</h2>
+      
+      <div class="form-group">
+        <label for="profileName">Name:</label>
+        <input type="text" id="profileName" class="form-input" value="{{ username if username else '' }}">
+      </div>
+      
+      <div class="form-group">
+        <label for="currentPassword">Current Password:</label>
+        <input type="password" id="currentPassword" class="form-input" placeholder="Enter current password">
+      </div>
+      
+      <div class="form-group">
+        <label for="newPassword">New Password:</label>
+        <input type="password" id="newPassword" class="form-input" placeholder="Enter new password">
+      </div>
+      
+      <div class="form-group">
+        <label for="confirmPassword">Confirm Password:</label>
+        <input type="password" id="confirmPassword" class="form-input" placeholder="Confirm new password">
+      </div>
+      
+      <div class="form-group">
+        <label>Change Buddy Pokémon:</label>
+        <div class="search-container">
+          <input type="text" id="buddySearch" class="form-input" placeholder="Search for a Pokémon">
+          <button onclick="searchBuddyPokemon()" class="search-button">🔍</button>
+        </div>
+        <div id="buddySearchResult" class="pokemon-result"></div>
+      </div>
+      
+      <div class="popup-buttons">
+        <button class="popup-button" onclick="saveProfileChanges()">Save Changes</button>
+        <button class="popup-button" onclick="logout()">Logout</button>
+        <button class="popup-button back-btn" onclick="closeProfileManagePopup()">Cancel</button>
+      </div>
+      
+      <p id="profileMessage" class="popup-message"></p>
     </div>
   </div>
 
@@ -505,28 +579,126 @@ function saveSettingChanges() {
     function toggleProfilePopup() {
       const popup = document.getElementById("profilePopup");
       popup.style.display = popup.style.display === "flex" ? "none" : "flex";
+      
+      // Clear previous results
+      document.getElementById("existingProfilesList").innerHTML = '';
+      
+      console.log("Opening profile popup and fetching profiles...");
+      // Fetch and display existing profiles
       fetch("/api/get_profiles")
-        .then(res => res.json())
-        .then(profiles => {
-          const resultBox = document.getElementById("pokemonResult");
-          resultBox.innerHTML += `<hr><h3>Or select an existing profile:</h3>`;
-          profiles.forEach(p => {
-            const btn = document.createElement("button");
-            btn.className = "popup-button";
-            btn.textContent = `${p.name} (${p.buddyPokemon.name})`;
-            btn.onclick = () => {
-              activeProfile = p;
-              updateBuddyDisplay();
-              preloadSettings();
-              closeProfilePopup();
-            };
-            resultBox.appendChild(btn);
+        .then(res => {
+          console.log("Profile response status:", res.status);
+          return res.text().then(text => {
+            try {
+              // Try to parse the response as JSON
+              const data = JSON.parse(text);
+              console.log("Successfully parsed profiles response:", data);
+              return data;
+            } catch (e) {
+              // Log the raw response if JSON parsing fails
+              console.error("Failed to parse profiles response:", text);
+              console.error("Parse error:", e);
+              throw e;
+            }
           });
+        })
+        .then(profiles => {
+          console.log("Processing profiles:", profiles);
+          const profilesList = document.getElementById("existingProfilesList");
+          
+          if (!profilesList) {
+            console.error("Could not find existingProfilesList element!");
+            return;
+          }
+          
+          if (profiles && profiles.length > 0) {
+            console.log(`Found ${profiles.length} profiles, rendering...`);
+            profiles.forEach(p => {
+              console.log("Processing profile:", p);
+              if (!p.buddyPokemon || !p.name) {
+                console.warn("Skipping invalid profile data:", p);
+                return;
+              }
+              
+              const profileCard = document.createElement("div");
+              profileCard.className = "profile-card";
+              profileCard.innerHTML = `
+                <img src="${p.buddyPokemon.sprite}" alt="${p.buddyPokemon.name}" class="profile-buddy">
+                <div class="profile-info">
+                  <h4>${p.name}</h4>
+                  <span>Buddy: ${p.buddyPokemon.name}</span>
+                </div>
+              `;
+              
+              profileCard.onclick = () => {
+                console.log("Profile clicked:", p);
+                // Send login request
+                fetch("/api/login", {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify({
+                    name: p.name,
+                    password: p.password
+                  })
+                })
+                .then(res => {
+                  console.log("Login response status:", res.status);
+                  return res.json();
+                })
+                .then(data => {
+                  console.log("Login response:", data);
+                  if (data.success) {
+                    console.log("Login successful, reloading page...");
+                    window.location.reload();
+                  } else {
+                    console.error("Login failed:", data.message);
+                    alert("Failed to log in: " + data.message);
+                  }
+                })
+                .catch(err => {
+                  console.error("Login error:", err);
+                  alert("Error logging in. Please try again.");
+                });
+              };
+              
+              console.log("Adding profile card to list:", profileCard.outerHTML);
+              profilesList.appendChild(profileCard);
+            });
+          } else {
+            console.log("No profiles found or empty profiles array");
+            profilesList.innerHTML = '<p class="no-profiles">No existing profiles found</p>';
+          }
+        })
+        .catch(err => {
+          console.error("Error in profile fetch/display:", err);
+          const profilesList = document.getElementById("existingProfilesList");
+          if (profilesList) {
+            profilesList.innerHTML = '<p class="no-profiles error">Error loading profiles</p>';
+          } else {
+            console.error("Could not find existingProfilesList element for error message");
+          }
         });
     }
 
     function closeProfilePopup() {
       document.getElementById("profilePopup").style.display = "none";
+    }
+
+    function toggleCreateProfile() {
+      document.getElementById("profilePopup").style.display = "none";
+      document.getElementById("createProfilePopup").style.display = "flex";
+      // Clear any previous inputs
+      document.getElementById("kidName").value = "";
+      document.getElementById("password").value = "";
+      document.getElementById("pokemonSearch").value = "";
+      document.getElementById("pokemonResult").innerHTML = "";
+    }
+
+    function closeCreateProfile() {
+      document.getElementById("createProfilePopup").style.display = "none";
+      document.getElementById("profilePopup").style.display = "flex";
     }
 
     window.saveProfile = function () {
@@ -573,16 +745,28 @@ function saveSettingChanges() {
       })
       .then(data => {
         console.log("Profile saved successfully:", data);
-        activeProfile = profile;
-        updateBuddyDisplay();
-        preloadSettings();
-        closeProfilePopup();
-        alert(`Profile for ${kidName} saved! You can now log in from any device.`);
-        // Reload the page to reflect the logged-in state
-        window.location.reload();
+        // Now log in with the new profile
+        return fetch("/api/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: kidName,
+            password: password
+          })
+        });
+      })
+      .then(res => res.json())
+      .then(loginData => {
+        if (loginData.success) {
+          console.log("Auto-login successful");
+          window.location.reload();
+        } else {
+          console.error("Auto-login failed:", loginData.message);
+          alert("Profile created but login failed. Please try logging in manually.");
+        }
       })
       .catch(err => {
-        console.error("Failed to save profile:", err);
+        console.error("Failed to save profile or login:", err);
         alert("There was a problem saving your profile. Please try again.");
       });
     };
@@ -644,6 +828,145 @@ function saveSettingChanges() {
         musicToggle.value = activeProfile.musicToggle || "on";
         musicTrackSelect.value = activeProfile.preferredMusic || "random";
       }
+    }
+
+    function toggleProfileManagePopup() {
+      const popup = document.getElementById('profileManagePopup');
+      if (popup.style.display === 'none') {
+        // Pre-fill the current name
+        document.getElementById('profileName').value = activeProfile?.name || '';
+        popup.style.display = 'block';
+      } else {
+        popup.style.display = 'none';
+      }
+      
+      // Clear any previous messages
+      document.getElementById('profileMessage').textContent = '';
+      
+      // Clear sensitive fields
+      document.getElementById('currentPassword').value = '';
+      document.getElementById('newPassword').value = '';
+      document.getElementById('confirmPassword').value = '';
+      document.getElementById('buddySearch').value = '';
+      document.getElementById('buddySearchResult').innerHTML = '';
+    }
+
+    function closeProfileManagePopup() {
+      document.getElementById('profileManagePopup').style.display = 'none';
+      document.getElementById('profileMessage').textContent = '';
+    }
+
+    async function searchBuddyPokemon() {
+      const searchTerm = document.getElementById('buddySearch').value.trim();
+      if (!searchTerm) return;
+      
+      try {
+        const response = await fetch(`/api/search_pokemon?name=${encodeURIComponent(searchTerm)}`);
+        const pokemon = await response.json();
+        
+        const resultBox = document.getElementById('buddySearchResult');
+        if (pokemon.length > 0) {
+          const html = pokemon.map(p => `
+            <div class="pokemon-option" onclick="selectBuddyPokemon('${p.name}', '${p.sprite}')">
+              <img src="${p.sprite}" alt="${p.name}">
+              <span>${p.name.charAt(0).toUpperCase() + p.name.slice(1)}</span>
+            </div>
+          `).join('');
+          resultBox.innerHTML = html;
+        } else {
+          resultBox.innerHTML = '<p>No Pokémon found</p>';
+        }
+      } catch (err) {
+        console.error('Error searching for Pokémon:', err);
+      }
+    }
+
+    function selectBuddyPokemon(name, sprite) {
+      const resultBox = document.getElementById('buddySearchResult');
+      resultBox.dataset.pokemonName = name;
+      resultBox.dataset.pokemonSprite = sprite;
+      resultBox.innerHTML = `
+        <div class="selected-pokemon">
+          <img src="${sprite}" alt="${name}">
+          <span>${name.charAt(0).toUpperCase() + name.slice(1)} selected!</span>
+        </div>
+      `;
+    }
+
+    async function saveProfileChanges() {
+      const name = document.getElementById('profileName').value.trim();
+      const currentPassword = document.getElementById('currentPassword').value;
+      const newPassword = document.getElementById('newPassword').value;
+      const confirmPassword = document.getElementById('confirmPassword').value;
+      const resultBox = document.getElementById('buddySearchResult');
+      const messageElement = document.getElementById('profileMessage');
+      
+      // Validate inputs
+      if (!name) {
+        messageElement.textContent = 'Please enter a name';
+        return;
+      }
+      
+      // Prepare update data
+      const updateData = {
+        _id: activeProfile._id,
+        name: name
+      };
+      
+      // Handle password change if provided
+      if (currentPassword && newPassword) {
+        if (newPassword !== confirmPassword) {
+          messageElement.textContent = 'New passwords do not match';
+          return;
+        }
+        updateData.currentPassword = currentPassword;
+        updateData.newPassword = newPassword;
+      }
+      
+      // Handle buddy change if selected
+      if (resultBox.dataset.pokemonName && resultBox.dataset.pokemonSprite) {
+        updateData.buddyPokemon = {
+          name: resultBox.dataset.pokemonName,
+          sprite: resultBox.dataset.pokemonSprite
+        };
+      }
+      
+      try {
+        const response = await fetch('/api/save_profile', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updateData)
+        });
+        
+        const result = await response.json();
+        
+        if (result.status === 'success') {
+          messageElement.textContent = 'Profile updated successfully!';
+          messageElement.className = 'popup-message success';
+          
+          // Update active profile
+          activeProfile = { ...activeProfile, ...updateData };
+          updateBuddyDisplay();
+          
+          // Close popup after a delay
+          setTimeout(() => {
+            closeProfileManagePopup();
+            // Reload page to reflect changes
+            window.location.reload();
+          }, 1500);
+        } else {
+          messageElement.textContent = result.message || 'Failed to update profile';
+          messageElement.className = 'popup-message error';
+        }
+      } catch (err) {
+        console.error('Error updating profile:', err);
+        messageElement.textContent = 'An error occurred while updating profile';
+        messageElement.className = 'popup-message error';
+      }
+    }
+
+    function logout() {
+      window.location.href = '/logout';
     }
 
   </script>
