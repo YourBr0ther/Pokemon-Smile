@@ -46,11 +46,11 @@
   <!-- Main Content -->
   <div class="main-content">
     <!-- Primary Action Button -->
-    <a href="/brushing" class="primary-action">Get Brushing!</a>
+    <a href="/brushing" class="primary-action" data-requires-connection>Get Brushing!</a>
     
     <!-- Secondary Actions -->
     <div class="secondary-actions">
-      <a href="/pokedex" class="secondary-action pokedex">
+      <a href="/pokedex" class="secondary-action pokedex" data-requires-connection>
         <img src="{{ url_for('static', filename='images/pokeball.svg') }}" alt="Pokédex">
         <span>Pokédex</span>
       </a>
@@ -58,7 +58,7 @@
         <img src="{{ url_for('static', filename='images/pikachu-ears.svg') }}" alt="Hats">
         <span>Hats</span>
       </a>
-      <a href="#" class="secondary-action profile" onclick="toggleProfilePopup()">
+      <a href="#" class="secondary-action profile" onclick="toggleProfilePopup()" data-requires-connection>
         <img src="{{ url_for('static', filename='images/user.svg') }}" alt="Profile">
         <span>{% if logged_in %}Profile{% else %}Select Profile{% endif %}</span>
       </a>
@@ -110,7 +110,7 @@
             <h3>
                 🗑️ Reset Pokédex
             </h3>
-            <button onclick="confirmResetPokedex()" class="settings-btn reset-btn">Reset Pokédex</button>
+            <button onclick="confirmResetPokedex()" class="settings-btn reset-btn" data-requires-connection>Reset Pokédex</button>
       </div>
 
         <button onclick="closeSettingsPopup()" class="settings-btn close-settings-btn">Close Settings</button>
@@ -171,7 +171,7 @@
       </div>
       
       <div class="popup-buttons">
-        <button class="popup-button" onclick="saveProfile()">Create Profile</button>
+        <button class="popup-button" onclick="saveProfile()" data-requires-connection>Create Profile</button>
         <button class="popup-button back-btn" onclick="closeCreateProfile()">Cancel</button>
       </div>
     </div>
