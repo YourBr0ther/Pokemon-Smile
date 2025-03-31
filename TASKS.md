@@ -3,22 +3,31 @@
 ## Current Sprint (v1.0.x)
 
 ### High Priority
-1. **PWA Implementation** 🚀
+1. **Service Status & Error Handling** 🚦
+   - [ ] Create service status checker
+   - [ ] Implement MongoDB connection status monitoring
+   - [ ] Add user-friendly error popup for service issues
+   - [ ] Handle offline/connection errors gracefully
+   - [ ] Add reconnection logic
+   - [ ] Create status endpoint for health checks
+
+2. **PWA Implementation** 🚀
    - [x] Create manifest.json
    - [x] Add service worker
    - [x] Generate PWA icons
    - [x] Update HTML templates with PWA meta tags
-   - [ ] Test offline functionality
-   - [ ] Verify installation on mobile devices
+   - [ ] Add online/offline status detection
+   - [ ] Show connection status indicator
+   - [ ] Block features when offline
 
-2. **User Authentication** 🔐
+3. **User Authentication** 🔐
    - [ ] Implement password change functionality
    - [ ] Add forgot password feature
    - [ ] Email integration for password reset
    - [ ] Improve password validation
    - [ ] Add session timeout handling
 
-3. **UI Enhancements** 💅
+4. **UI Enhancements** 💅
    - [ ] Add silly hats feature
    - [ ] Implement hat overlay on camera feed
    - [ ] Create hat selection interface

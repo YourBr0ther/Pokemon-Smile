@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Service Error</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f5f5f5;
+        }
+        .error-container {
+            text-align: center;
+            padding: 2rem;
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            max-width: 500px;
+        }
+        .psyduck-image {
+            width: 200px;
+            height: 200px;
+            margin-bottom: 1rem;
+        }
+        .error-title {
+            color: #e74c3c;
+            margin-bottom: 1rem;
+        }
+        .error-message {
+            color: #666;
+            margin-bottom: 2rem;
+        }
+        .retry-button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+        }
+        .retry-button:hover {
+            background-color: #2980b9;
+        }
+        .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 10px;
+        }
+        .status-online {
+            background-color: #2ecc71;
+        }
+        .status-offline {
+            background-color: #e74c3c;
+        }
+    </style>
+</head>
+<body>
+    <div class="error-container">
+        <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/54.png" alt="Confused Psyduck" class="psyduck-image">
+        <h1 class="error-title">Oops! Service Error</h1>
+        <p class="error-message">It looks like we're having some trouble connecting to our services. Psyduck is a bit confused too!</p>
+        <div class="service-status">
+            <span class="status-indicator" id="statusIndicator"></span>
+            <span id="statusText">Checking service status...</span>
+        </div>
+        <br>
+        <button class="retry-button" onclick="checkHealth()">Try Again</button>
+    </div>
+
+    <script>
+        function checkHealth() {
+            fetch('/api/health')
+                .then(response => response.json())
+                .then(data => {
+                    const indicator = document.getElementById('statusIndicator');
+                    const statusText = document.getElementById('statusText');
+                    
+                    if (data.status === 'ok') {
+                        indicator.className = 'status-indicator status-online';
+                        statusText.textContent = 'Services are back online!';
+                        setTimeout(() => window.location.href = '/', 1000);
+                    } else {
+                        indicator.className = 'status-indicator status-offline';
+                        statusText.textContent = 'Services are still unavailable';
+                    }
+                })
+                .catch(error => {
+                    const indicator = document.getElementById('statusIndicator');
+                    const statusText = document.getElementById('statusText');
+                    indicator.className = 'status-indicator status-offline';
+                    statusText.textContent = 'Services are still unavailable';
+                });
+        }
+
+        // Check health status when page loads
+        checkHealth();
+    </script>
+</body>
+</html> 

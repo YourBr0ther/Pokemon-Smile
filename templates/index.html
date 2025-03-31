@@ -111,7 +111,7 @@
                 🗑️ Reset Pokédex
             </h3>
             <button onclick="confirmResetPokedex()" class="settings-btn reset-btn">Reset Pokédex</button>
-        </div>
+      </div>
 
         <button onclick="closeSettingsPopup()" class="settings-btn close-settings-btn">Close Settings</button>
     </div>
@@ -394,7 +394,7 @@ function saveSettingChanges() {
     }
 
     function toggleMenuMusic() {
-        const musicBtn = document.querySelector('.music-btn');
+      const musicBtn = document.querySelector('.music-btn');
         const musicToggle = document.querySelector('select[name="musicToggle"]');
         
         if (isMusicPlaying) {
@@ -407,28 +407,28 @@ function saveSettingChanges() {
                 saveSettings();
             }
         } else {
-            if (!menuMusic) {
-                // Initialize music if it doesn't exist
-                menuMusic = new Audio();
-                menuMusic.loop = true;
-                menuMusic.volume = 0.6;
-                
-                // Choose a random track
-                const bgMusicTracks = [
-                    '/static/music/BGM Main 01.mp3',
-                    '/static/music/BGM Main 02.mp3',
-                    '/static/music/BGM Main 03.mp3',
-                    '/static/music/BGM Main 04.mp3',
-                    '/static/music/BGM Main 05.mp3'
-                ];
-                menuMusic.src = bgMusicTracks[Math.floor(Math.random() * bgMusicTracks.length)];
-            }
-            
+      if (!menuMusic) {
+        // Initialize music if it doesn't exist
+        menuMusic = new Audio();
+        menuMusic.loop = true;
+        menuMusic.volume = 0.6;
+        
+        // Choose a random track
+        const bgMusicTracks = [
+          '/static/music/BGM Main 01.mp3',
+          '/static/music/BGM Main 02.mp3',
+          '/static/music/BGM Main 03.mp3',
+          '/static/music/BGM Main 04.mp3',
+          '/static/music/BGM Main 05.mp3'
+        ];
+        menuMusic.src = bgMusicTracks[Math.floor(Math.random() * bgMusicTracks.length)];
+      }
+      
             // Play music
-            menuMusic.play()
-                .then(() => {
+        menuMusic.play()
+          .then(() => {
                     musicBtn.textContent = '🎵';
-                    isMusicPlaying = true;
+            isMusicPlaying = true;
                     if (musicToggle) {
                         musicToggle.value = 'on';
                     }
@@ -436,10 +436,10 @@ function saveSettingChanges() {
                         activeProfile.musicToggle = 'on';
                         saveSettings();
                     }
-                })
-                .catch(err => {
-                    console.warn("Music autoplay blocked:", err);
-                    musicBtn.textContent = '🔇';
+          })
+          .catch(err => {
+            console.warn("Music autoplay blocked:", err);
+            musicBtn.textContent = '🔇';
                     isMusicPlaying = false;
                 });
         }
@@ -472,9 +472,9 @@ function saveSettingChanges() {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify(activeProfile)
-        })
+          })
         .then(response => response.json())
-        .then(data => {
+          .then(data => {
             console.log('Settings saved successfully:', data);
             // Update music state if needed
             if (musicToggle === 'off' && isMusicPlaying) {
@@ -498,7 +498,7 @@ function saveSettingChanges() {
 
         if (musicToggleSelect) {
             musicToggleSelect.value = activeProfile.musicToggle || 'on';
-        }
+      }
     }
 
     function toggleSettingsPopup() {
@@ -667,7 +667,7 @@ function saveSettingChanges() {
       .catch(error => {
         console.error("Login error:", error);
         alert('Failed to log in. Please try again.');
-      });
+        });
     }
 
     function closeProfilePopup() {
@@ -753,7 +753,7 @@ function saveSettingChanges() {
       .then(loginData => {
         if (loginData.success) {
           console.log("Auto-login successful");
-          window.location.reload();
+        window.location.reload();
         } else {
           console.error("Auto-login failed:", loginData.message);
           alert("Profile created but login failed. Please try logging in manually.");

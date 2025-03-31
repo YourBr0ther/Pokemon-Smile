@@ -21,35 +21,155 @@ app.config['SESSION_TYPE'] = 'filesystem'
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=7)  # Make sessions last longer
 app.config['SERVER_NAME'] = os.environ.get("BASE_URL", "").replace("http://", "").replace("https://", "")
 
+# Global variables for service status
+mongodb_status = {
+    'status': 'unknown',
+    'last_checked': None,
+    'error': None
+}
+
+def check_mongodb_connection():
+    """Check MongoDB connection and update status."""
+    global mongodb_status
+    try:
+        client.admin.command('ping')
+        mongodb_status = {
+            'status': 'healthy',
+            'last_checked': datetime.now(),
+            'error': None
+        }
+        return True
+    except Exception as e:
+        mongodb_status = {
+            'status': 'error',
+            'last_checked': datetime.now(),
+            'error': str(e)
+        }
+        return False
+
+@app.route('/api/health')
+def health_check():
+    """Health check endpoint that verifies all services are running."""
+    # Check MongoDB connection
+    mongodb_healthy = check_mongodb_connection()
+    
+    # Get Pokemon API status
+    try:
+        pokemon_api = requests.get(f"{POKEAPI_BASE}/pokemon/1", timeout=5)
+        pokemon_api_healthy = pokemon_api.status_code == 200
+    except:
+        pokemon_api_healthy = False
+    
+    status = {
+        'status': 'healthy' if mongodb_healthy and pokemon_api_healthy else 'degraded',
+        'services': {
+            'mongodb': {
+                'status': mongodb_status['status'],
+                'last_checked': mongodb_status['last_checked'].isoformat() if mongodb_status['last_checked'] else None,
+                'error': mongodb_status['error']
+            },
+            'pokemon_api': {
+                'status': 'healthy' if pokemon_api_healthy else 'error'
+            }
+        },
+        'timestamp': datetime.now().isoformat()
+    }
+    
+    return jsonify(status), 200 if status['status'] == 'healthy' else 503
+
+@app.before_request
+def check_service_status():
+    """Check service status before each request."""
+    # Skip health check endpoint to avoid infinite loop
+    if request.endpoint == 'health_check':
+        return
+        
+    # Skip static files
+    if request.endpoint == 'static':
+        return
+        
+    # Check MongoDB connection
+    if not check_mongodb_connection():
+        # If it's an API request, return JSON error
+        if request.path.startswith('/api/'):
+            return jsonify({
+                'error': 'Service Unavailable',
+                'message': 'Database connection error. Please try again later.',
+                'status': mongodb_status
+            }), 503
+        
+        # For regular requests, show error page
+        return render_template('error.html',
+            error_title='Service Unavailable',
+            error_message='We are experiencing technical difficulties. Please try again later.',
+            status=mongodb_status
+        ), 503
+
 # Make sessions permanent by default
 @app.before_request
 def make_session_permanent():
     session.permanent = True
 
 POKEAPI_BASE = "https://pokeapi.co/api/v2"
-MONGO_URI = os.environ.get("MONGO_URI", "mongodb://localhost:27017/")
+# Use service name 'mongo' for Docker Compose, fallback to localhost for local dev
+MONGO_URI = os.environ.get("MONGO_URI", "mongodb://mongo:27017/")
 
-# Connect to MongoDB
+# Initialize MongoDB client with longer timeout for Docker environment
 try:
     print(f"Attempting to connect to MongoDB at {MONGO_URI}")
-    client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)  # 5 second timeout
+    client = MongoClient(MONGO_URI, 
+                        serverSelectionTimeoutMS=20000,  # 20 second timeout
+                        connectTimeoutMS=20000,
+                        socketTimeoutMS=20000,
+                        retryWrites=True)
     # Force a connection to verify it works
     client.admin.command('ping')
     print("MongoDB connection successful!")
     db = client["pokemon_smile"]
     profiles_collection = db["profiles"]
+    
+    # Initialize MongoDB status
+    mongodb_status = {
+        'status': 'healthy',
+        'last_checked': datetime.now(),
+        'error': None
+    }
 except (ConnectionFailure, ServerSelectionTimeoutError) as e:
     print(f"ERROR: Could not connect to MongoDB: {e}")
     print("Please make sure MongoDB is running and the connection string is correct.")
-    print("You can start MongoDB locally with:")
-    if sys.platform.startswith('win'):
-        print("  - Check if MongoDB service is running in services.msc")
-        print("  - Or run: net start MongoDB")
-    elif sys.platform.startswith('darwin'):  # macOS
-        print("  brew services start mongodb-community")
-    else:  # Linux
-        print("  sudo systemctl start mongodb")
-    sys.exit(1)
+    print("If using Docker Compose, ensure the mongo service is up with:")
+    print("  docker-compose ps")
+    print("  docker-compose logs mongo")
+    
+    # Update MongoDB status
+    mongodb_status = {
+        'status': 'error',
+        'last_checked': datetime.now(),
+        'error': str(e)
+    }
+    
+    # Don't exit, let the app run in degraded mode
+    client = None
+    db = None
+    profiles_collection = None
+
+# Wrap MongoDB operations in try/except
+def safe_db_operation(operation):
+    """Safely execute a MongoDB operation with proper error handling."""
+    try:
+        if client is None:
+            raise ServerSelectionTimeoutError("MongoDB is not available")
+        return operation()
+    except (ConnectionFailure, ServerSelectionTimeoutError) as e:
+        # Update MongoDB status
+        global mongodb_status
+        mongodb_status = {
+            'status': 'error',
+            'last_checked': datetime.now(),
+            'error': str(e)
+        }
+        # Re-raise the exception to be caught by the request handler
+        raise
 
 # -------------------
 # HOME PAGE
@@ -72,27 +192,36 @@ def main_menu():
         try:
             if not isinstance(user_id, ObjectId):
                 user_id = ObjectId(user_id)
-        except:
-            pass
+                
+            def get_profile():
+                return profiles_collection.find_one({"_id": user_id})
             
-        profile = profiles_collection.find_one({"_id": user_id})
-        if profile and 'buddyPokemon' in profile:
-            # Use the buddy Pokémon from the profile
-            buddy = profile['buddyPokemon']
-            print(f"User logged in: {profile.get('name', 'User')} with buddy: {buddy.get('name', 'Unknown')}")
-            return render_template('index.html', 
-                                  sprite_url=buddy.get('sprite', ''),
-                                  pokemon_name=buddy.get('name', 'Buddy'),
-                                  logged_in=True,
-                                  username=profile.get('name', 'User'))
+            profile = safe_db_operation(get_profile)
+            
+            if profile and 'buddyPokemon' in profile:
+                # Use the buddy Pokémon from the profile
+                buddy = profile['buddyPokemon']
+                print(f"User logged in: {profile.get('name', 'User')} with buddy: {buddy.get('name', 'Unknown')}")
+                return render_template('index.html', 
+                                    sprite_url=buddy.get('sprite', ''),
+                                    pokemon_name=buddy.get('name', 'Buddy'),
+                                    logged_in=True,
+                                    username=profile.get('name', 'User'))
+        except (ConnectionFailure, ServerSelectionTimeoutError) as e:
+            # Show error page for MongoDB connection issues
+            return render_template('error.html',
+                error_title='Service Unavailable',
+                error_message='We are experiencing technical difficulties. Please try again later.',
+                status=mongodb_status
+            ), 503
     
     # Not logged in or no profile found - show random Pokémon
     print("No user logged in or no buddy - showing random Pokémon")
     random_pokemon = get_random_pokemon_sprite()
     return render_template('index.html', 
-                          sprite_url=random_pokemon['sprite'], 
-                          pokemon_name=random_pokemon['name'],
-                          logged_in=False)
+                        sprite_url=random_pokemon['sprite'], 
+                        pokemon_name=random_pokemon['name'],
+                        logged_in=False)
 
 # -------------------
 # AUTH ROUTES
