@@ -1,6 +1,10 @@
 services:
   web:
     image: yourbr0ther/pokemon-smile:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+      no_cache: true
     ports:
       - "5000:5000"
     env_file:
@@ -35,3 +39,4 @@ services:
 volumes:
   mongo_data:
     driver: local
+    name: pokemon_smile_mongo_data

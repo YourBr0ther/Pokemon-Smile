@@ -302,9 +302,13 @@ def get_profiles():
         print("\n=== GET /api/get_profiles ===")
         print("Fetching all profiles from MongoDB...")
         
-        # Get all profiles from the database
-        profiles = list(profiles_collection.find())
+        # Get all profiles from the database with no filters
+        cursor = profiles_collection.find({})
+        profiles = list(cursor)
+        
         print(f"Found {len(profiles)} profiles in database")
+        print("Profile IDs found:", [str(p['_id']) for p in profiles])
+        print("Profile names found:", [p.get('name', 'MISSING') for p in profiles])
         
         # Convert ObjectId to string for JSON serialization
         serialized_profiles = []
@@ -313,30 +317,25 @@ def get_profiles():
                 profile_copy = profile.copy()
                 profile_copy['_id'] = str(profile['_id'])
                 
-                # Validate required fields
-                if not profile_copy.get('name'):
-                    print(f"Warning: Profile {profile_copy['_id']} missing name field")
-                    continue
-                    
-                if not profile_copy.get('buddyPokemon'):
-                    print(f"Warning: Profile {profile_copy['_id']} missing buddyPokemon field")
-                    continue
-                    
-                if not profile_copy.get('password'):
-                    print(f"Warning: Profile {profile_copy['_id']} missing password field")
-                    continue
+                # Log profile details for debugging
+                print(f"\nProcessing profile:")
+                print(f"ID: {profile_copy['_id']}")
+                print(f"Name: {profile_copy.get('name', 'MISSING')}")
+                print(f"Has password: {bool(profile_copy.get('password'))}")
+                print(f"Buddy Pokemon: {profile_copy.get('buddyPokemon', 'MISSING')}")
                 
+                # Add profile to list
                 serialized_profiles.append(profile_copy)
-                print(f"Profile processed: {profile_copy.get('name')} with buddy {profile_copy.get('buddyPokemon', {}).get('name')}")
+                
             except Exception as e:
                 print(f"Error processing profile {profile.get('_id')}: {e}")
                 continue
         
-        print(f"Returning {len(serialized_profiles)} serialized profiles")
+        print(f"\nReturning {len(serialized_profiles)} serialized profiles")
         return jsonify(serialized_profiles)
     except Exception as e:
         print(f"Error getting profiles: {e}")
-        return jsonify([])
+        return jsonify({"error": str(e)}), 500
 
 @app.route('/api/active_profile')
 def get_active_profile():
@@ -406,17 +405,26 @@ def api_login():
     data = request.json
     name = data.get('name')
     password = data.get('password')
+    profile_id = data.get('profile_id')
     
     # Debug logging
-    print(f"Login attempt for user: {name}")
+    print(f"Login attempt for user: {name} with profile_id: {profile_id}")
     
     if not name or not password:
         return jsonify({"success": False, "message": "Username and password are required"}), 400
     
     # Try MongoDB first
     try:
-        # Find user in database
-        user = profiles_collection.find_one({"name": name, "password": password})
+        # Find user in database using profile_id if provided
+        query = {"name": name, "password": password}
+        if profile_id:
+            try:
+                query["_id"] = ObjectId(profile_id)
+            except Exception as e:
+                print(f"Error converting profile_id to ObjectId: {e}")
+                return jsonify({"success": False, "message": "Invalid profile ID"}), 400
+        
+        user = profiles_collection.find_one(query)
         
         if user:
             # Convert ObjectId to string before storing in session
@@ -424,23 +432,6 @@ def api_login():
             return jsonify({"success": True, "message": "Login successful"})
     except Exception as e:
         print(f"MongoDB login error: {e}")
-        # Fall back to profiles.json if MongoDB fails
-    
-    # Fall back to profiles.json
-    profiles = []
-    try:
-        with open('profiles.json', 'r') as f:
-            profiles = json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError):
-        # If file doesn't exist or is invalid, return empty list
-        pass
-    
-    # Find matching profile
-    for profile in profiles:
-        if profile.get('name') == name and profile.get('password') == password:
-            # Set active profile
-            session['active_profile'] = profile
-            return jsonify({"success": True, "message": "Login successful"})
     
     # No matching profile found
     return jsonify({"success": False, "message": "Invalid username or password"}), 401

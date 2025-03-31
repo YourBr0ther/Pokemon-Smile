@@ -577,109 +577,129 @@ function saveSettingChanges() {
     }
 
     function toggleProfilePopup() {
-      const popup = document.getElementById("profilePopup");
-      popup.style.display = popup.style.display === "flex" ? "none" : "flex";
+      console.log("Opening profile popup");
+      const popup = document.getElementById('profilePopup');
+      const profilesList = document.getElementById('existingProfilesList');
       
-      // Clear previous results
-      document.getElementById("existingProfilesList").innerHTML = '';
+      // Set display style for popup
+      popup.style.display = 'flex';
+      popup.style.justifyContent = 'center';
+      popup.style.alignItems = 'center';
       
-      console.log("Opening profile popup and fetching profiles...");
-      // Fetch and display existing profiles
-      fetch("/api/get_profiles")
-        .then(res => {
-          console.log("Profile response status:", res.status);
-          return res.text().then(text => {
-            try {
-              // Try to parse the response as JSON
-              const data = JSON.parse(text);
-              console.log("Successfully parsed profiles response:", data);
-              return data;
-            } catch (e) {
-              // Log the raw response if JSON parsing fails
-              console.error("Failed to parse profiles response:", text);
-              console.error("Parse error:", e);
-              throw e;
-            }
-          });
-        })
-        .then(profiles => {
-          console.log("Processing profiles:", profiles);
-          const profilesList = document.getElementById("existingProfilesList");
-          
-          if (!profilesList) {
-            console.error("Could not find existingProfilesList element!");
-            return;
-          }
-          
-          if (profiles && profiles.length > 0) {
-            console.log(`Found ${profiles.length} profiles, rendering...`);
-            profiles.forEach(p => {
-              console.log("Processing profile:", p);
-              if (!p.buddyPokemon || !p.name) {
-                console.warn("Skipping invalid profile data:", p);
-                return;
+      // Clear any existing profiles
+      profilesList.innerHTML = '<div class="loading">Loading profiles...</div>';
+      
+      // Fetch profiles with error handling
+      fetch('/api/get_profiles')
+          .then(response => {
+              console.log("Profile fetch response status:", response.status);
+              return response.text().then(text => {
+                  try {
+                      // Try to parse the response as JSON
+                      const data = JSON.parse(text);
+                      console.log("Raw response data:", data);
+                      return data;
+                  } catch (e) {
+                      // If parsing fails, log the raw text
+                      console.error("Failed to parse JSON response:", text);
+                      throw new Error("Invalid JSON response");
+                  }
+              });
+          })
+          .then(profiles => {
+              console.log("Received profiles:", profiles);
+              console.log("Number of profiles received:", profiles.length);
+              
+              if (!Array.isArray(profiles)) {
+                  console.error("Profiles is not an array:", profiles);
+                  profilesList.innerHTML = '<div class="error">Invalid profile data received</div>';
+                  return;
               }
               
-              const profileCard = document.createElement("div");
-              profileCard.className = "profile-card";
-              profileCard.innerHTML = `
-                <img src="${p.buddyPokemon.sprite}" alt="${p.buddyPokemon.name}" class="profile-buddy">
-                <div class="profile-info">
-                  <h4>${p.name}</h4>
-                  <span>Buddy: ${p.buddyPokemon.name}</span>
-                </div>
-              `;
+              if (profiles.length === 0) {
+                  console.log("No profiles found");
+                  profilesList.innerHTML = '<div class="no-profiles">No profiles found. Create one to get started!</div>';
+                  return;
+              }
               
-              profileCard.onclick = () => {
-                console.log("Profile clicked:", p);
-                // Send login request
-                fetch("/api/login", {
-                  method: "POST",
-                  headers: {
-                    "Content-Type": "application/json",
-                  },
-                  body: JSON.stringify({
-                    name: p.name,
-                    password: p.password
-                  })
-                })
-                .then(res => {
-                  console.log("Login response status:", res.status);
-                  return res.json();
-                })
-                .then(data => {
-                  console.log("Login response:", data);
-                  if (data.success) {
-                    console.log("Login successful, reloading page...");
-                    window.location.reload();
-                  } else {
-                    console.error("Login failed:", data.message);
-                    alert("Failed to log in: " + data.message);
+              // Clear loading message
+              profilesList.innerHTML = '';
+              
+              // Add each profile
+              profiles.forEach((profile, index) => {
+                  console.log(`Processing profile ${index + 1}:`, profile);
+                  
+                  if (!profile || !profile._id) {
+                      console.warn("Invalid profile data:", profile);
+                      return;
                   }
-                })
-                .catch(err => {
-                  console.error("Login error:", err);
-                  alert("Error logging in. Please try again.");
-                });
-              };
+                  
+                  const profileDiv = document.createElement('div');
+                  profileDiv.className = 'profile-item';
+                  
+                  const name = profile.name || 'Unnamed Profile';
+                  const buddyName = profile.buddyPokemon?.name || 'No Buddy';
+                  const buddySprite = profile.buddyPokemon?.sprite || '{{ url_for("static", filename="images/unknown.png") }}';
+                  
+                  console.log(`Creating profile element for ${name} with buddy ${buddyName}`);
+                  
+                  profileDiv.innerHTML = `
+                      <img src="${buddySprite}" alt="${buddyName}" class="profile-buddy">
+                      <div class="profile-info">
+                          <div class="profile-name">${name}</div>
+                          <div class="profile-buddy-name">Buddy: ${buddyName}</div>
+                      </div>
+                      <button onclick="selectProfile('${profile._id}', '${name}')" class="select-profile-btn">Select</button>
+                  `;
+                  
+                  profilesList.appendChild(profileDiv);
+                  console.log(`Added profile ${name} to the list`);
+              });
               
-              console.log("Adding profile card to list:", profileCard.outerHTML);
-              profilesList.appendChild(profileCard);
-            });
+              console.log("Total profiles displayed:", profilesList.children.length);
+          })
+          .catch(error => {
+              console.error("Error fetching profiles:", error);
+              profilesList.innerHTML = `<div class="error">Failed to load profiles: ${error.message}</div>`;
+          });
+    }
+
+    function selectProfile(profileId, name) {
+      console.log(`Selecting profile: ${name} (${profileId})`);
+      
+      // Get password input
+      const password = prompt(`Enter password for ${name}:`);
+      if (!password) {
+          return;
+      }
+      
+      // Attempt login
+      fetch('/api/login', {
+          method: 'POST',
+          headers: {
+              'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+              name: name,
+              password: password,
+              profile_id: profileId
+          })
+      })
+      .then(response => response.json())
+      .then(data => {
+          console.log("Login response:", data);
+          
+          if (data.success) {
+              // Reload the page to update the UI
+              window.location.reload();
           } else {
-            console.log("No profiles found or empty profiles array");
-            profilesList.innerHTML = '<p class="no-profiles">No existing profiles found</p>';
+              alert(data.message || 'Invalid password');
           }
-        })
-        .catch(err => {
-          console.error("Error in profile fetch/display:", err);
-          const profilesList = document.getElementById("existingProfilesList");
-          if (profilesList) {
-            profilesList.innerHTML = '<p class="no-profiles error">Error loading profiles</p>';
-          } else {
-            console.error("Could not find existingProfilesList element for error message");
-          }
-        });
+      })
+      .catch(error => {
+          console.error("Login error:", error);
+          alert('Failed to log in. Please try again.');
+      });
     }
 
     function closeProfilePopup() {
