@@ -17,12 +17,16 @@ import atexit
 
 load_dotenv()
 
-app = Flask(__name__)
+# Get the directory containing this file
+app_dir = os.path.dirname(os.path.abspath(__file__))
+
+app = Flask(__name__,
+           template_folder=os.path.join(app_dir, 'templates'),
+           static_folder=os.path.join(app_dir, 'static'))
 CORS(app)  # Add CORS support to allow cross-origin requests
 app.secret_key = os.environ.get("SECRET_KEY", secrets.token_hex(16))
 app.config['SESSION_TYPE'] = 'filesystem'
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=7)  # Make sessions last longer
-app.config['SERVER_NAME'] = os.environ.get("BASE_URL", "").replace("http://", "").replace("https://", "")
 
 # Global variables for service status
 mongodb_status = {
@@ -38,213 +42,24 @@ background_thread_running = True
 health_check_thread = None
 _first_request = True
 
-def check_mongodb_connection():
-    """Check MongoDB connection and update status."""
-    global mongodb_status
-    try:
-        client.admin.command('ping')
-        # Keep reconnection tracking fields when updating status
-        mongodb_status.update({
-            'status': 'healthy',
-            'last_checked': datetime.now(),
-            'error': None,
-            'reconnect_attempts': 0,  # Reset attempts on successful connection
-            'last_reconnect_attempt': None
-        })
-        return True
-    except Exception as e:
-        # Keep existing reconnection tracking when updating status
-        current_attempts = mongodb_status.get('reconnect_attempts', 0)
-        current_last_attempt = mongodb_status.get('last_reconnect_attempt', None)
-        
-        mongodb_status.update({
-            'status': 'error',
-            'last_checked': datetime.now(),
-            'error': str(e),
-            'reconnect_attempts': current_attempts,  # Maintain attempt count
-            'last_reconnect_attempt': current_last_attempt
-        })
-        return False
+# Constants
+POKEAPI_BASE = os.environ.get("POKEAPI_BASE", "https://pokeapi.co/api/v2")
 
-def periodic_health_check():
-    """Background thread function to check MongoDB connection status every 10 seconds."""
-    global background_thread_running
-    
-    print("Starting periodic health check thread...")
-    while background_thread_running:
-        try:
-            # Check MongoDB connection
-            check_mongodb_connection()
-            
-            # If connection is in error state, attempt reconnection
-            if mongodb_status['status'] == 'error':
-                attempt_mongodb_reconnection()
-                
-            # Log status for monitoring
-            print(f"Periodic health check - MongoDB Status: {mongodb_status['status']}")
-            if mongodb_status['status'] == 'error':
-                print(f"Error: {mongodb_status['error']}")
-                
-        except Exception as e:
-            print(f"Error in periodic health check: {e}")
-            
-        # Wait 10 seconds before next check
-        time.sleep(10)
-    
-    print("Periodic health check thread stopped.")
+# MongoDB client setup
+def get_mongodb_client():
+    """Get MongoDB client with proper configuration."""
+    return MongoClient(
+        os.environ.get("MONGODB_URI", "mongodb://mongo:27017/"),
+        serverSelectionTimeoutMS=20000,
+        connectTimeoutMS=20000,
+        socketTimeoutMS=20000,
+        retryWrites=True
+    )
 
-@app.before_request
-def before_first_request():
-    """Ensure the health check thread is running before the first request."""
-    global health_check_thread, _first_request
-    
-    if _first_request:
-        _first_request = False
-        if not health_check_thread or not health_check_thread.is_alive():
-            print("Starting health check thread...")
-            health_check_thread = threading.Thread(target=periodic_health_check, daemon=True)
-            health_check_thread.start()
-
-# Cleanup function to stop the background thread gracefully
-def cleanup():
-    global background_thread_running
-    background_thread_running = False
-    if health_check_thread and health_check_thread.is_alive():
-        health_check_thread.join(timeout=1)
-        print("Background health check thread stopped.")
-
-# Register cleanup function to be called when Flask shuts down
-atexit.register(cleanup)
-
-def attempt_mongodb_reconnection():
-    """Attempt to reconnect to MongoDB with exponential backoff."""
-    global client, db, profiles_collection, mongodb_status
-    
-    # If we've tried too many times recently, wait longer
-    if mongodb_status['reconnect_attempts'] > 5:
-        # Wait at least 5 minutes between attempts after 5 failures
-        if (mongodb_status['last_reconnect_attempt'] and 
-            datetime.now() - mongodb_status['last_reconnect_attempt'] < timedelta(minutes=5)):
-            return False
-    
-    try:
-        print("Attempting to reconnect to MongoDB...")
-        new_client = MongoClient(MONGO_URI,
-                            serverSelectionTimeoutMS=20000,
-                            connectTimeoutMS=20000,
-                            socketTimeoutMS=20000,
-                            retryWrites=True)
-        # Test the connection
-        new_client.admin.command('ping')
-        
-        # If we get here, connection was successful
-        client = new_client
-        db = client["pokemon_smile"]
-        profiles_collection = db["profiles"]
-        
-        # Reset reconnection tracking
-        mongodb_status.update({
-            'status': 'healthy',
-            'last_checked': datetime.now(),
-            'error': None,
-            'reconnect_attempts': 0,
-            'last_reconnect_attempt': None
-        })
-        
-        print("MongoDB reconnection successful!")
-        return True
-        
-    except (ConnectionFailure, ServerSelectionTimeoutError) as e:
-        # Update status and increment attempt counter
-        mongodb_status.update({
-            'status': 'error',
-            'last_checked': datetime.now(),
-            'error': str(e),
-            'reconnect_attempts': mongodb_status['reconnect_attempts'] + 1,
-            'last_reconnect_attempt': datetime.now()
-        })
-        print(f"MongoDB reconnection failed: {e}")
-        return False
-
-@app.route('/api/health')
-def health_check():
-    """Health check endpoint that verifies all services are running."""
-    # Check MongoDB connection
-    mongodb_healthy = check_mongodb_connection()
-    
-    # Get Pokemon API status
-    try:
-        pokemon_api = requests.get(f"{POKEAPI_BASE}/pokemon/1", timeout=5)
-        pokemon_api_healthy = pokemon_api.status_code == 200
-    except:
-        pokemon_api_healthy = False
-    
-    status = {
-        'status': 'healthy' if mongodb_healthy and pokemon_api_healthy else 'degraded',
-        'services': {
-            'mongodb': {
-                'status': mongodb_status['status'],
-                'last_checked': mongodb_status['last_checked'].isoformat() if mongodb_status['last_checked'] else None,
-                'error': mongodb_status['error'],
-                'reconnection': {
-                    'attempts': mongodb_status['reconnect_attempts'],
-                    'last_attempt': mongodb_status['last_reconnect_attempt'].isoformat() if mongodb_status['last_reconnect_attempt'] else None
-                }
-            },
-            'pokemon_api': {
-                'status': 'healthy' if pokemon_api_healthy else 'error'
-            }
-        },
-        'timestamp': datetime.now().isoformat()
-    }
-    
-    return jsonify(status), 200 if status['status'] == 'healthy' else 503
-
-@app.before_request
-def check_service_status():
-    """Check service status before each request."""
-    # Skip health check endpoint to avoid infinite loop
-    if request.endpoint == 'health_check':
-        return
-        
-    # Skip static files
-    if request.endpoint == 'static':
-        return
-        
-    # Check MongoDB connection
-    if not check_mongodb_connection():
-        # If it's an API request, return JSON error
-        if request.path.startswith('/api/'):
-            return jsonify({
-                'error': 'Service Unavailable',
-                'message': 'Database connection error. Please try again later.',
-                'status': mongodb_status
-            }), 503
-        
-        # For regular requests, show error page
-        return render_template('error.html',
-            error_title='Service Unavailable',
-            error_message='We are experiencing technical difficulties. Please try again later.',
-            status=mongodb_status
-        ), 503
-
-# Make sessions permanent by default
-@app.before_request
-def make_session_permanent():
-    session.permanent = True
-
-POKEAPI_BASE = "https://pokeapi.co/api/v2"
-# Use service name 'mongo' for Docker Compose, fallback to localhost for local dev
-MONGO_URI = os.environ.get("MONGO_URI", "mongodb://mongo:27017/")
-
-# Initialize MongoDB client with longer timeout for Docker environment
+# Initialize MongoDB client and collections
 try:
-    print(f"Attempting to connect to MongoDB at {MONGO_URI}")
-    client = MongoClient(MONGO_URI, 
-                        serverSelectionTimeoutMS=20000,  # 20 second timeout
-                        connectTimeoutMS=20000,
-                        socketTimeoutMS=20000,
-                        retryWrites=True)
+    print("Initializing MongoDB connection...")
+    client = get_mongodb_client()
     # Force a connection to verify it works
     client.admin.command('ping')
     print("MongoDB connection successful!")
@@ -262,9 +77,7 @@ try:
 except (ConnectionFailure, ServerSelectionTimeoutError) as e:
     print(f"ERROR: Could not connect to MongoDB: {e}")
     print("Please make sure MongoDB is running and the connection string is correct.")
-    print("If using Docker Compose, ensure the mongo service is up with:")
-    print("  docker-compose ps")
-    print("  docker-compose logs mongo")
+    print("If using Docker Compose, ensure the mongo service is up.")
     
     # Update MongoDB status with reconnection tracking
     mongodb_status.update({
@@ -971,6 +784,204 @@ def get_pokemon(pokemon_id):
     except Exception as e:
         print(f"Error fetching Pokémon #{pokemon_id}: {e}")
         return jsonify({"error": str(e)}), 500
+
+def attempt_mongodb_reconnection():
+    """Attempt to reconnect to MongoDB with exponential backoff."""
+    global client, db, profiles_collection, mongodb_status
+    
+    # If we've tried too many times recently, wait longer
+    if mongodb_status['reconnect_attempts'] > 5:
+        # Wait at least 5 minutes between attempts after 5 failures
+        if (mongodb_status['last_reconnect_attempt'] and 
+            datetime.now() - mongodb_status['last_reconnect_attempt'] < timedelta(minutes=5)):
+            return False
+    
+    try:
+        print("Attempting to reconnect to MongoDB...")
+        new_client = MongoClient(os.environ.get("MONGODB_URI", "mongodb://mongo:27017/"),
+                            serverSelectionTimeoutMS=20000,
+                            connectTimeoutMS=20000,
+                            socketTimeoutMS=20000,
+                            retryWrites=True)
+        # Test the connection
+        new_client.admin.command('ping')
+        
+        # If we get here, connection was successful
+        client = new_client
+        db = client["pokemon_smile"]
+        profiles_collection = db["profiles"]
+        
+        # Reset reconnection tracking
+        mongodb_status.update({
+            'status': 'healthy',
+            'last_checked': datetime.now(),
+            'error': None,
+            'reconnect_attempts': 0,
+            'last_reconnect_attempt': None
+        })
+        
+        print("MongoDB reconnection successful!")
+        return True
+        
+    except (ConnectionFailure, ServerSelectionTimeoutError) as e:
+        # Update status and increment attempt counter
+        mongodb_status.update({
+            'status': 'error',
+            'last_checked': datetime.now(),
+            'error': str(e),
+            'reconnect_attempts': mongodb_status['reconnect_attempts'] + 1,
+            'last_reconnect_attempt': datetime.now()
+        })
+        print(f"MongoDB reconnection failed: {e}")
+        return False
+
+@app.route('/api/health')
+def health_check():
+    """Health check endpoint that verifies all services are running."""
+    # Check MongoDB connection
+    mongodb_healthy = check_mongodb_connection()
+    
+    # Get Pokemon API status
+    try:
+        pokemon_api = requests.get(f"{POKEAPI_BASE}/pokemon/1", timeout=5)
+        pokemon_api_healthy = pokemon_api.status_code == 200
+    except:
+        pokemon_api_healthy = False
+    
+    status = {
+        'status': 'healthy' if mongodb_healthy and pokemon_api_healthy else 'degraded',
+        'services': {
+            'mongodb': {
+                'status': mongodb_status['status'],
+                'last_checked': mongodb_status['last_checked'].isoformat() if mongodb_status['last_checked'] else None,
+                'error': mongodb_status['error'],
+                'reconnection': {
+                    'attempts': mongodb_status['reconnect_attempts'],
+                    'last_attempt': mongodb_status['last_reconnect_attempt'].isoformat() if mongodb_status['last_reconnect_attempt'] else None
+                }
+            },
+            'pokemon_api': {
+                'status': 'healthy' if pokemon_api_healthy else 'error'
+            }
+        },
+        'timestamp': datetime.now().isoformat()
+    }
+    
+    return jsonify(status), 200 if status['status'] == 'healthy' else 503
+
+@app.before_request
+def check_service_status():
+    """Check service status before each request."""
+    # Skip health check endpoint to avoid infinite loop
+    if request.endpoint == 'health_check':
+        return
+        
+    # Skip static files
+    if request.endpoint == 'static':
+        return
+        
+    # Check MongoDB connection
+    if not check_mongodb_connection():
+        # If it's an API request, return JSON error
+        if request.path.startswith('/api/'):
+            return jsonify({
+                'error': 'Service Unavailable',
+                'message': 'Database connection error. Please try again later.',
+                'status': mongodb_status
+            }), 503
+        
+        # For regular requests, show error page
+        return render_template('error.html',
+            error_title='Service Unavailable',
+            error_message='We are experiencing technical difficulties. Please try again later.',
+            status=mongodb_status
+        ), 503
+
+# Make sessions permanent by default
+@app.before_request
+def make_session_permanent():
+    session.permanent = True
+
+# Use service name 'mongo' for Docker Compose, fallback to localhost for local dev
+MONGO_URI = os.environ.get("MONGO_URI", "mongodb://mongo:27017/")
+
+def check_mongodb_connection():
+    """Check MongoDB connection and update status."""
+    global mongodb_status
+    try:
+        client.admin.command('ping')
+        # Keep reconnection tracking fields when updating status
+        mongodb_status.update({
+            'status': 'healthy',
+            'last_checked': datetime.now(),
+            'error': None,
+            'reconnect_attempts': 0,  # Reset attempts on successful connection
+            'last_reconnect_attempt': None
+        })
+        return True
+    except Exception as e:
+        # Keep existing reconnection tracking when updating status
+        current_attempts = mongodb_status.get('reconnect_attempts', 0)
+        current_last_attempt = mongodb_status.get('last_reconnect_attempt', None)
+        
+        mongodb_status.update({
+            'status': 'error',
+            'last_checked': datetime.now(),
+            'error': str(e),
+            'reconnect_attempts': current_attempts,  # Maintain attempt count
+            'last_reconnect_attempt': current_last_attempt
+        })
+        return False
+
+@app.before_request
+def before_first_request():
+    """Ensure the health check thread is running before the first request."""
+    global health_check_thread, _first_request
+    
+    if _first_request:
+        _first_request = False
+        if not health_check_thread or not health_check_thread.is_alive():
+            print("Starting health check thread...")
+            health_check_thread = threading.Thread(target=periodic_health_check, daemon=True)
+            health_check_thread.start()
+
+# Cleanup function to stop the background thread gracefully
+def cleanup():
+    global background_thread_running
+    background_thread_running = False
+    if health_check_thread and health_check_thread.is_alive():
+        health_check_thread.join(timeout=1)
+        print("Background health check thread stopped.")
+
+# Register cleanup function to be called when Flask shuts down
+atexit.register(cleanup)
+
+def periodic_health_check():
+    """Background thread function to check MongoDB connection status every 10 seconds."""
+    global background_thread_running
+    
+    print("Starting periodic health check thread...")
+    while background_thread_running:
+        try:
+            # Check MongoDB connection
+            check_mongodb_connection()
+            
+            # If connection is in error state, attempt reconnection
+            if mongodb_status['status'] == 'error':
+                attempt_mongodb_reconnection()
+                
+            # Log status for monitoring
+            print(f"Periodic health check - MongoDB Status: {mongodb_status['status']}")
+            if mongodb_status['status'] == 'error':
+                print(f"Error: {mongodb_status['error']}")
+                
+        except Exception as e:
+            print(f"Error in periodic health check: {e}")
+            
+        # Wait 10 seconds before next check
+        time.sleep(10)
+    
+    print("Periodic health check thread stopped.")
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5001, debug=True)
