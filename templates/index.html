@@ -83,23 +83,37 @@
   </button>
   
   <!-- Settings Popup -->
-  <div class="popup-overlay" id="settingsPopup" style="display:none;">
-    <div class="popup-box">
-      <h2>⚙️ Settings</h2>
-      <label for="brushingDuration">🕒 Brushing Duration:</label>
-      <select id="brushingDuration" class="popup-select"></select>
+  <div id="settingsPopup" class="popup-overlay" style="display: none;">
+    <div class="settings-popup">
+        <h2>
+            ⚙️ Settings
+        </h2>
+        
+        <div class="settings-section">
+            <label for="brushingTime">⏱️ Brushing Duration:</label>
+            <select name="brushingTime" id="brushingTime">
+                <option value="60">1 minute</option>
+                <option value="120">2 minutes</option>
+                <option value="180">3 minutes</option>
+            </select>
+        </div>
 
-      <label for="musicToggle">🎵 Background Music:</label>
-      <select id="musicToggle" class="popup-select"></select>
+        <div class="settings-section">
+            <label>🎵 Background Music:</label>
+            <select name="musicToggle" id="musicToggle">
+                <option value="on">On</option>
+                <option value="off">Off</option>
+            </select>
+        </div>
 
-      <label for="musicTrack">🎶 Preferred Music Track:</label>
-      <select id="musicTrack" class="popup-select"></select>
+        <div class="reset-section">
+            <h3>
+                🗑️ Reset Pokédex
+            </h3>
+            <button onclick="confirmResetPokedex()" class="settings-btn reset-btn">Reset Pokédex</button>
+        </div>
 
-      <div style="margin-top:20px;">
-        <h3>🗑 Reset Pokédex</h3>
-        <button class="popup-button" onclick="showResetPopup()">Reset Pokédex</button>
-      </div>
-      <button class="popup-button back-btn" onclick="toggleSettingsPopup()">Close Settings</button>
+        <button onclick="closeSettingsPopup()" class="settings-btn close-settings-btn">Close Settings</button>
     </div>
   </div>
 
@@ -229,6 +243,7 @@
 let activeProfile = null;
 let menuMusic = null;
 let isMusicPlaying = false;
+let currentMusic = null;
 
 async function loadActiveProfile() {
   try {
@@ -262,7 +277,7 @@ function preloadSettings() {
   
   // Set brushing duration
   if (activeProfile.brushingTime) {
-    document.getElementById("brushingDuration").value = activeProfile.brushingTime;
+    document.getElementById("brushingTime").value = activeProfile.brushingTime;
   }
   
   // Set music toggle
@@ -284,7 +299,7 @@ function preloadSettings() {
 function saveSettingChanges() {
   if (!activeProfile) return;
   
-  const brushingTime = document.getElementById("brushingDuration").value;
+  const brushingTime = document.getElementById("brushingTime").value;
   const musicToggle = document.getElementById("musicToggle").value;
   const musicTrack = document.getElementById("musicTrack").value;
   
@@ -365,200 +380,124 @@ function saveSettingChanges() {
     // Set buddy on load
     updateBuddyDisplay();
 
-    function toggleMenuMusic() {
-      const musicBtn = document.querySelector('.music-btn');
-      
-      if (!menuMusic) {
-        // Initialize music if it doesn't exist
-        menuMusic = new Audio();
-        menuMusic.loop = true;
-        menuMusic.volume = 0.6;
-        
-        // Choose a random track
-        const bgMusicTracks = [
-          '/static/music/BGM Main 01.mp3',
-          '/static/music/BGM Main 02.mp3',
-          '/static/music/BGM Main 03.mp3',
-          '/static/music/BGM Main 04.mp3',
-          '/static/music/BGM Main 05.mp3'
-        ];
-        menuMusic.src = bgMusicTracks[Math.floor(Math.random() * bgMusicTracks.length)];
-      }
-      
-      if (isMusicPlaying) {
-        // Pause music
-        menuMusic.pause();
-        musicBtn.textContent = '🔇';
-        isMusicPlaying = false;
-      } else {
-        // Play music without alert
-        menuMusic.play()
-          .then(() => {
-            musicBtn.textContent = '🔊';
-            isMusicPlaying = true;
-          })
-          .catch(err => {
-            console.warn("Music autoplay blocked:", err);
-            // Just update the icon, no alert
+    function stopMusic() {
+        if (menuMusic) {
+            menuMusic.pause();
+            menuMusic = null;
+            isMusicPlaying = false;
+        }
+        const musicBtn = document.querySelector('.music-btn');
+        if (musicBtn) {
             musicBtn.textContent = '🔇';
-          });
-      }
-      
-      // Save music preference if logged in
-      if (activeProfile) {
-        activeProfile.musicToggle = isMusicPlaying ? "on" : "off";
-        saveSettingChanges();
-      }
-    }
-
-    // Add this function to initialize the music when the page loads
-    function initializeMusic() {
-      const musicBtn = document.querySelector('.music-btn');
-      musicBtn.textContent = isMusicPlaying ? '🔊' : '🔇';
-      
-      // Try to autoplay music if user preference is set
-      if (activeProfile && activeProfile.musicToggle === "on") {
-        setTimeout(() => {
-          toggleMenuMusic();
-        }, 1000);
-      }
-    }
-
-    // Update the document ready function
-    document.addEventListener('DOMContentLoaded', function() {
-      loadActiveProfile().then(() => {
-        initializeMusic();
-        initializeSettingsForm();
-      });
-      
-      // Add event listeners for settings changes
-      document.getElementById("brushingDuration").addEventListener("change", saveSettingChanges);
-      document.getElementById("musicToggle").addEventListener("change", function() {
-        // Update music state based on toggle
-        const shouldPlayMusic = this.value === "on";
-        if (shouldPlayMusic !== isMusicPlaying) {
-          toggleMenuMusic();
         }
-        saveSettingChanges();
-      });
-      document.getElementById("musicTrack").addEventListener("change", saveSettingChanges);
-      
-      // Debug the buddy Pokémon
-      const buddySprite = document.getElementById("buddySprite");
-      console.log("Buddy sprite element:", buddySprite);
-      console.log("Buddy sprite src:", buddySprite.src);
-      console.log("Buddy sprite display:", window.getComputedStyle(buddySprite).display);
-      console.log("Buddy sprite visibility:", window.getComputedStyle(buddySprite).visibility);
-      console.log("Buddy sprite z-index:", window.getComputedStyle(buddySprite).zIndex);
-      
-      // Force visibility
-      buddySprite.style.display = "block";
-      buddySprite.style.visibility = "visible";
-      buddySprite.style.opacity = "1";
-      
-      // Fix layout issues with buddy Pokémon
-      async function fixLayout() {
-        const buddySprite = document.getElementById('buddySprite');
-        const buddyNameBubble = document.getElementById('buddyNameBubble');
-        const bottomPokemon = document.querySelector('.bottom-pokemon');
-        
-        // Position the container to be truly centered
-        bottomPokemon.style.position = 'absolute';
-        bottomPokemon.style.bottom = '100px';
-        bottomPokemon.style.left = '50%';
-        bottomPokemon.style.transform = 'translateX(-50%)';
-        bottomPokemon.style.zIndex = '50';
-        bottomPokemon.style.width = '300px'; // Match the image width
-        bottomPokemon.style.display = 'flex';
-        bottomPokemon.style.flexDirection = 'column';
-        bottomPokemon.style.alignItems = 'center';
-        bottomPokemon.style.justifyContent = 'center';
-        bottomPokemon.style.textAlign = 'center';
-        
-        // Position the speech bubble
-        buddyNameBubble.style.position = 'relative';
-        buddyNameBubble.style.marginBottom = '2px';
-        buddyNameBubble.style.zIndex = '51';
-        buddyNameBubble.style.whiteSpace = 'nowrap';
-        
-        // Position the buddy sprite
-        buddySprite.style.display = 'block';
-        buddySprite.style.margin = '0 auto';
-        buddySprite.style.width = '300px';
-        buddySprite.style.height = 'auto';
-        buddySprite.style.position = 'relative';
-        buddySprite.style.zIndex = '52';
-        buddySprite.style.imageRendering = 'pixelated';
-        buddySprite.style.imageRendering = 'crisp-edges';
-        buddySprite.style.left = '0'; // Reset left position
-        
-        // Remove any transforms that might be affecting position
-        buddySprite.style.transform = 'none';
-        buddySprite.style.right = 'auto';
-        
-        // Make sure float animation is applied
-        if (!buddySprite.classList.contains('float')) {
-          buddySprite.classList.add('float');
-        }
-        
-        console.log('Layout fixed for buddy Pokémon');
-      }
-      
-      // Run the layout fix after a short delay to ensure all elements are loaded
-      setTimeout(fixLayout, 500);
-    });
-
-    let correctAnswer;
-    function showResetPopup() {
-      const num1 = Math.floor(Math.random() * 20 + 10);
-      const num2 = Math.floor(Math.random() * 20 + 10);
-      correctAnswer = num1 * num2;
-      document.getElementById("mathProblem").textContent = `${num1} × ${num2} = ?`;
-      document.getElementById("mathAnswer").value = "";
-      document.getElementById("resetMessage").textContent = "";
-      document.getElementById("resetPopup").style.display = "flex";
     }
 
-    function closeResetPopup() {
-      document.getElementById("resetPopup").style.display = "none";
-    }
-
-    function attemptReset() {
-      const userAnswer = parseInt(document.getElementById("mathAnswer").value);
-      const message = document.getElementById("resetMessage");
-      
-      if (userAnswer === correctAnswer) {
-        // Reset the Pokédex
-        if (activeProfile) {
-          activeProfile.caught_pokemon = [];
-          
-          fetch("/api/save_profile", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(activeProfile)
-          })
-          .then(res => {
-            if (!res.ok) throw new Error("Failed to reset Pokédex");
-            return res.json();
-          })
-          .then(data => {
-            message.textContent = "✅ Pokédex reset successfully!";
-            message.style.color = "green";
-            setTimeout(closeResetPopup, 2000);
-          })
-          .catch(err => {
-            console.error("Error resetting Pokédex:", err);
-            message.textContent = "❌ Error resetting Pokédex. Please try again.";
-            message.style.color = "red";
-          });
+    function toggleMenuMusic() {
+        const musicBtn = document.querySelector('.music-btn');
+        const musicToggle = document.querySelector('select[name="musicToggle"]');
+        
+        if (isMusicPlaying) {
+            stopMusic();
+            if (musicToggle) {
+                musicToggle.value = 'off';
+            }
+            if (activeProfile) {
+                activeProfile.musicToggle = 'off';
+                saveSettings();
+            }
         } else {
-          message.textContent = "❌ No active profile found.";
-          message.style.color = "red";
+            if (!menuMusic) {
+                // Initialize music if it doesn't exist
+                menuMusic = new Audio();
+                menuMusic.loop = true;
+                menuMusic.volume = 0.6;
+                
+                // Choose a random track
+                const bgMusicTracks = [
+                    '/static/music/BGM Main 01.mp3',
+                    '/static/music/BGM Main 02.mp3',
+                    '/static/music/BGM Main 03.mp3',
+                    '/static/music/BGM Main 04.mp3',
+                    '/static/music/BGM Main 05.mp3'
+                ];
+                menuMusic.src = bgMusicTracks[Math.floor(Math.random() * bgMusicTracks.length)];
+            }
+            
+            // Play music
+            menuMusic.play()
+                .then(() => {
+                    musicBtn.textContent = '🎵';
+                    isMusicPlaying = true;
+                    if (musicToggle) {
+                        musicToggle.value = 'on';
+                    }
+                    if (activeProfile) {
+                        activeProfile.musicToggle = 'on';
+                        saveSettings();
+                    }
+                })
+                .catch(err => {
+                    console.warn("Music autoplay blocked:", err);
+                    musicBtn.textContent = '🔇';
+                    isMusicPlaying = false;
+                });
         }
-      } else {
-        message.textContent = "❌ Incorrect answer. Try again!";
-        message.style.color = "red";
-      }
+    }
+
+    function saveSettings() {
+        if (!activeProfile) return;
+
+        const brushingSelect = document.querySelector('select[name="brushingTime"]');
+        const musicToggleSelect = document.querySelector('select[name="musicToggle"]');
+
+        if (!brushingSelect || !musicToggleSelect) {
+            console.warn('Settings elements not found');
+            return;
+        }
+
+        const brushingTime = brushingSelect.value;
+        const musicToggle = musicToggleSelect.value;
+
+        console.log('Saving settings:', { brushingTime, musicToggle });
+
+        // Update local profile
+        activeProfile.brushingTime = parseInt(brushingTime);
+        activeProfile.musicToggle = musicToggle;
+
+        // Save to server
+        fetch('/api/save_profile', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(activeProfile)
+        })
+        .then(response => response.json())
+        .then(data => {
+            console.log('Settings saved successfully:', data);
+            // Update music state if needed
+            if (musicToggle === 'off' && isMusicPlaying) {
+                stopMusic();
+            }
+        })
+        .catch(error => {
+            console.error('Error saving settings:', error);
+        });
+    }
+
+    function initializeSettingsForm() {
+        if (!activeProfile) return;
+
+        const brushingSelect = document.querySelector('select[name="brushingTime"]');
+        const musicToggleSelect = document.querySelector('select[name="musicToggle"]');
+
+        if (brushingSelect) {
+            brushingSelect.value = activeProfile.brushingTime || 60;
+        }
+
+        if (musicToggleSelect) {
+            musicToggleSelect.value = activeProfile.musicToggle || 'on';
+        }
     }
 
     function toggleSettingsPopup() {
@@ -811,45 +750,6 @@ function saveSettingChanges() {
       }, 500);
     });
 
-    // Initialize the settings form elements
-    function initializeSettingsForm() {
-      const brushingSelect = document.getElementById("brushingDuration");
-      const musicToggle = document.getElementById("musicToggle");
-      const musicTrackSelect = document.getElementById("musicTrack");
-      
-      // Set up brushing duration options
-      brushingSelect.innerHTML = `
-        <option value="60">1 minute</option>
-        <option value="120">2 minutes</option>
-        <option value="180">3 minutes</option>
-      `;
-      
-      // Set up music toggle options
-      musicToggle.innerHTML = `
-        <option value="on">On</option>
-        <option value="off">Off</option>
-      `;
-      
-      // Set up music track options
-      musicTrackSelect.innerHTML = `
-        <option value="random">Random</option>
-        <option value="1">Track 1</option>
-        <option value="2">Track 2</option>
-        <option value="3">Track 3</option>
-        <option value="4">Track 4</option>
-        <option value="5">Track 5</option>
-        <option value="6">Track 6</option>
-        <option value="7">Track 7</option>
-      `;
-      
-      // Load user preferences if available
-      if (activeProfile) {
-        brushingSelect.value = activeProfile.brushingTime || "60";
-        musicToggle.value = activeProfile.musicToggle || "on";
-        musicTrackSelect.value = activeProfile.preferredMusic || "random";
-      }
-    }
-
     function toggleProfileManagePopup() {
       const popup = document.getElementById('profileManagePopup');
       if (popup.style.display === 'none') {
@@ -988,6 +888,166 @@ function saveSettingChanges() {
     function logout() {
       window.location.href = '/logout';
     }
+
+    function closeSettingsPopup() {
+        const popup = document.getElementById("settingsPopup");
+        popup.style.display = "none";
+    }
+
+    function confirmResetPokedex() {
+        if (confirm("Are you sure you want to reset your Pokédex? This cannot be undone!")) {
+            if (activeProfile) {
+                // Reset caught Pokémon array
+                activeProfile.caught_pokemon = [];
+                
+                // Save to server
+                fetch('/api/save_profile', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(activeProfile)
+                })
+                .then(response => response.json())
+                .then(data => {
+                    alert('Pokédex reset successfully!');
+                    closeSettingsPopup();
+                })
+                .catch(error => {
+                    console.error('Error resetting Pokédex:', error);
+                    alert('Failed to reset Pokédex. Please try again.');
+                });
+            }
+        }
+    }
+
+    let correctAnswer;
+    function showResetPopup() {
+      const num1 = Math.floor(Math.random() * 20 + 10);
+      const num2 = Math.floor(Math.random() * 20 + 10);
+      correctAnswer = num1 * num2;
+      document.getElementById("mathProblem").textContent = `${num1} × ${num2} = ?`;
+      document.getElementById("mathAnswer").value = "";
+      document.getElementById("resetMessage").textContent = "";
+      document.getElementById("resetPopup").style.display = "flex";
+    }
+
+    function closeResetPopup() {
+      document.getElementById("resetPopup").style.display = "none";
+    }
+
+    function attemptReset() {
+      const userAnswer = parseInt(document.getElementById("mathAnswer").value);
+      const message = document.getElementById("resetMessage");
+      
+      if (userAnswer === correctAnswer) {
+        // Reset the Pokédex
+        if (activeProfile) {
+          activeProfile.caught_pokemon = [];
+          
+          fetch("/api/save_profile", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(activeProfile)
+          })
+          .then(res => {
+            if (!res.ok) throw new Error("Failed to reset Pokédex");
+            return res.json();
+          })
+          .then(data => {
+            message.textContent = "✅ Pokédex reset successfully!";
+            message.style.color = "green";
+            setTimeout(closeResetPopup, 2000);
+          })
+          .catch(err => {
+            console.error("Error resetting Pokédex:", err);
+            message.textContent = "❌ Error resetting Pokédex. Please try again.";
+            message.style.color = "red";
+          });
+        } else {
+          message.textContent = "❌ No active profile found.";
+          message.style.color = "red";
+        }
+      } else {
+        message.textContent = "❌ Incorrect answer. Try again!";
+        message.style.color = "red";
+      }
+    }
+
+    // Initialize everything when the document loads
+    document.addEventListener('DOMContentLoaded', function() {
+        loadActiveProfile().then(() => {
+            // Initialize settings form
+            initializeSettingsForm();
+            
+            // Initialize music button state
+            const musicBtn = document.querySelector('.music-btn');
+            if (activeProfile && activeProfile.musicToggle === 'off') {
+                musicBtn.textContent = '🔇';
+            } else {
+                musicBtn.textContent = '🎵';
+                // Try to autoplay music if user preference is set to on
+                if (activeProfile && activeProfile.musicToggle === 'on') {
+                    setTimeout(() => toggleMenuMusic(), 1000);
+                }
+            }
+            
+            // Add event listeners for settings changes
+            const settingsInputs = document.querySelectorAll('#settingsPopup select');
+            settingsInputs.forEach(input => {
+                input.addEventListener('change', saveSettings);
+            });
+        });
+
+        // Fix layout issues with buddy Pokémon
+        const fixLayout = () => {
+            const buddySprite = document.getElementById('buddySprite');
+            const buddyNameBubble = document.getElementById('buddyNameBubble');
+            const bottomPokemon = document.querySelector('.bottom-pokemon');
+            
+            if (!buddySprite || !buddyNameBubble || !bottomPokemon) return;
+
+            // Position the container
+            bottomPokemon.style.position = 'absolute';
+            bottomPokemon.style.bottom = '100px';
+            bottomPokemon.style.left = '50%';
+            bottomPokemon.style.transform = 'translateX(-50%)';
+            bottomPokemon.style.zIndex = '50';
+            bottomPokemon.style.width = '300px';
+            bottomPokemon.style.display = 'flex';
+            bottomPokemon.style.flexDirection = 'column';
+            bottomPokemon.style.alignItems = 'center';
+            bottomPokemon.style.justifyContent = 'center';
+            bottomPokemon.style.textAlign = 'center';
+            
+            // Position the speech bubble
+            buddyNameBubble.style.position = 'relative';
+            buddyNameBubble.style.marginBottom = '2px';
+            buddyNameBubble.style.zIndex = '51';
+            buddyNameBubble.style.whiteSpace = 'nowrap';
+            
+            // Position the buddy sprite
+            buddySprite.style.display = 'block';
+            buddySprite.style.margin = '0 auto';
+            buddySprite.style.width = '300px';
+            buddySprite.style.height = 'auto';
+            buddySprite.style.position = 'relative';
+            buddySprite.style.zIndex = '52';
+            buddySprite.style.imageRendering = 'pixelated';
+            buddySprite.style.imageRendering = 'crisp-edges';
+            buddySprite.style.left = '0';
+            buddySprite.style.transform = 'none';
+            buddySprite.style.right = 'auto';
+            
+            // Make sure float animation is applied
+            if (!buddySprite.classList.contains('float')) {
+                buddySprite.classList.add('float');
+            }
+        };
+
+        // Run the layout fix after a short delay
+        setTimeout(fixLayout, 500);
+    });
 
   </script>
 </body>

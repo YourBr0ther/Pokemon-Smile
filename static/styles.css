@@ -1726,3 +1726,160 @@ h1, h2, h3, h4, h5, h6 {
   background-color: #f8d7da;
 }
 
+/* Settings Popup Styles */
+.settings-popup {
+  background: white;
+  padding: 25px;
+  border-radius: 15px;
+  border: 3px solid #333;
+  box-shadow: 0 6px 0 #333;
+  width: min(400px, 90vw);
+  position: relative;
+}
+
+.settings-popup h2 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 1.5em;
+  color: #333;
+  margin-bottom: 25px;
+}
+
+.settings-popup h2 img {
+  width: 24px;
+  height: 24px;
+}
+
+.settings-section {
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.settings-section label {
+  font-size: 1.1em;
+  color: #444;
+  flex-shrink: 0;
+}
+
+.settings-section select {
+  padding: 10px 15px;
+  border: 2px solid #333;
+  border-radius: 8px;
+  background-color: white;
+  font-size: 1em;
+  color: #333;
+  cursor: pointer;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  flex: 1;
+}
+
+.settings-section select:hover {
+  border-color: #4fd4e4;
+}
+
+.settings-section select:focus {
+  outline: none;
+  border-color: #4fd4e4;
+  box-shadow: 0 0 0 3px rgba(79, 212, 228, 0.2);
+}
+
+.music-controls {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  margin-bottom: 20px;
+}
+
+.reset-section {
+  margin: 30px 0;
+  padding-top: 20px;
+  border-top: 2px solid #e0e0e0;
+}
+
+.reset-section h3 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 1.2em;
+  color: #444;
+  margin-bottom: 15px;
+}
+
+.reset-section img {
+  width: 20px;
+  height: 20px;
+}
+
+.settings-btn.reset-btn {
+  width: 100%;
+  height: auto;
+  position: static;
+  border-radius: 10px;
+  background-color: #4fd4e4;
+  color: white;
+  font-weight: bold;
+  padding: 12px;
+  margin-bottom: 10px;
+}
+
+.settings-btn.reset-btn:hover {
+  background-color: #3bc1d1;
+}
+
+.settings-btn.close-settings-btn {
+  width: 100%;
+  height: auto;
+  position: static;
+  border-radius: 10px;
+  background-color: #ff6b6b;
+  color: white;
+  font-weight: bold;
+  padding: 12px;
+}
+
+.settings-btn.close-settings-btn:hover {
+  background-color: #ff5252;
+}
+
+/* Music toggle specific styles */
+.music-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.music-toggle select {
+  min-width: 100px;
+}
+
+@media (max-width: 480px) {
+  .settings-btn {
+    width: 50px;
+    height: 50px;
+    bottom: 20px;
+    left: 20px;
+  }
+  
+  .settings-btn img {
+    width: 30px;
+    height: 30px;
+  }
+  
+  .settings-popup {
+    padding: 20px;
+  }
+  
+  .settings-section {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  
+  .settings-section select {
+    width: 100%;
+  }
+}
+
