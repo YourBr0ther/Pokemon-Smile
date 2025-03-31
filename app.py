@@ -11,6 +11,9 @@ import sys
 from datetime import datetime, timedelta
 import json
 from flask_cors import CORS
+import threading
+import time
+import atexit
 
 load_dotenv()
 
@@ -25,26 +28,142 @@ app.config['SERVER_NAME'] = os.environ.get("BASE_URL", "").replace("http://", ""
 mongodb_status = {
     'status': 'unknown',
     'last_checked': None,
-    'error': None
+    'error': None,
+    'reconnect_attempts': 0,
+    'last_reconnect_attempt': None
 }
+
+# Flag to control the background thread
+background_thread_running = True
+health_check_thread = None
+_first_request = True
 
 def check_mongodb_connection():
     """Check MongoDB connection and update status."""
     global mongodb_status
     try:
         client.admin.command('ping')
-        mongodb_status = {
+        # Keep reconnection tracking fields when updating status
+        mongodb_status.update({
             'status': 'healthy',
             'last_checked': datetime.now(),
-            'error': None
-        }
+            'error': None,
+            'reconnect_attempts': 0,  # Reset attempts on successful connection
+            'last_reconnect_attempt': None
+        })
         return True
     except Exception as e:
-        mongodb_status = {
+        # Keep existing reconnection tracking when updating status
+        current_attempts = mongodb_status.get('reconnect_attempts', 0)
+        current_last_attempt = mongodb_status.get('last_reconnect_attempt', None)
+        
+        mongodb_status.update({
             'status': 'error',
             'last_checked': datetime.now(),
-            'error': str(e)
-        }
+            'error': str(e),
+            'reconnect_attempts': current_attempts,  # Maintain attempt count
+            'last_reconnect_attempt': current_last_attempt
+        })
+        return False
+
+def periodic_health_check():
+    """Background thread function to check MongoDB connection status every 10 seconds."""
+    global background_thread_running
+    
+    print("Starting periodic health check thread...")
+    while background_thread_running:
+        try:
+            # Check MongoDB connection
+            check_mongodb_connection()
+            
+            # If connection is in error state, attempt reconnection
+            if mongodb_status['status'] == 'error':
+                attempt_mongodb_reconnection()
+                
+            # Log status for monitoring
+            print(f"Periodic health check - MongoDB Status: {mongodb_status['status']}")
+            if mongodb_status['status'] == 'error':
+                print(f"Error: {mongodb_status['error']}")
+                
+        except Exception as e:
+            print(f"Error in periodic health check: {e}")
+            
+        # Wait 10 seconds before next check
+        time.sleep(10)
+    
+    print("Periodic health check thread stopped.")
+
+@app.before_request
+def before_first_request():
+    """Ensure the health check thread is running before the first request."""
+    global health_check_thread, _first_request
+    
+    if _first_request:
+        _first_request = False
+        if not health_check_thread or not health_check_thread.is_alive():
+            print("Starting health check thread...")
+            health_check_thread = threading.Thread(target=periodic_health_check, daemon=True)
+            health_check_thread.start()
+
+# Cleanup function to stop the background thread gracefully
+def cleanup():
+    global background_thread_running
+    background_thread_running = False
+    if health_check_thread and health_check_thread.is_alive():
+        health_check_thread.join(timeout=1)
+        print("Background health check thread stopped.")
+
+# Register cleanup function to be called when Flask shuts down
+atexit.register(cleanup)
+
+def attempt_mongodb_reconnection():
+    """Attempt to reconnect to MongoDB with exponential backoff."""
+    global client, db, profiles_collection, mongodb_status
+    
+    # If we've tried too many times recently, wait longer
+    if mongodb_status['reconnect_attempts'] > 5:
+        # Wait at least 5 minutes between attempts after 5 failures
+        if (mongodb_status['last_reconnect_attempt'] and 
+            datetime.now() - mongodb_status['last_reconnect_attempt'] < timedelta(minutes=5)):
+            return False
+    
+    try:
+        print("Attempting to reconnect to MongoDB...")
+        new_client = MongoClient(MONGO_URI,
+                            serverSelectionTimeoutMS=20000,
+                            connectTimeoutMS=20000,
+                            socketTimeoutMS=20000,
+                            retryWrites=True)
+        # Test the connection
+        new_client.admin.command('ping')
+        
+        # If we get here, connection was successful
+        client = new_client
+        db = client["pokemon_smile"]
+        profiles_collection = db["profiles"]
+        
+        # Reset reconnection tracking
+        mongodb_status.update({
+            'status': 'healthy',
+            'last_checked': datetime.now(),
+            'error': None,
+            'reconnect_attempts': 0,
+            'last_reconnect_attempt': None
+        })
+        
+        print("MongoDB reconnection successful!")
+        return True
+        
+    except (ConnectionFailure, ServerSelectionTimeoutError) as e:
+        # Update status and increment attempt counter
+        mongodb_status.update({
+            'status': 'error',
+            'last_checked': datetime.now(),
+            'error': str(e),
+            'reconnect_attempts': mongodb_status['reconnect_attempts'] + 1,
+            'last_reconnect_attempt': datetime.now()
+        })
+        print(f"MongoDB reconnection failed: {e}")
         return False
 
 @app.route('/api/health')
@@ -66,7 +185,11 @@ def health_check():
             'mongodb': {
                 'status': mongodb_status['status'],
                 'last_checked': mongodb_status['last_checked'].isoformat() if mongodb_status['last_checked'] else None,
-                'error': mongodb_status['error']
+                'error': mongodb_status['error'],
+                'reconnection': {
+                    'attempts': mongodb_status['reconnect_attempts'],
+                    'last_attempt': mongodb_status['last_reconnect_attempt'].isoformat() if mongodb_status['last_reconnect_attempt'] else None
+                }
             },
             'pokemon_api': {
                 'status': 'healthy' if pokemon_api_healthy else 'error'
@@ -129,11 +252,13 @@ try:
     profiles_collection = db["profiles"]
     
     # Initialize MongoDB status
-    mongodb_status = {
+    mongodb_status.update({
         'status': 'healthy',
         'last_checked': datetime.now(),
-        'error': None
-    }
+        'error': None,
+        'reconnect_attempts': 0,
+        'last_reconnect_attempt': None
+    })
 except (ConnectionFailure, ServerSelectionTimeoutError) as e:
     print(f"ERROR: Could not connect to MongoDB: {e}")
     print("Please make sure MongoDB is running and the connection string is correct.")
@@ -141,12 +266,14 @@ except (ConnectionFailure, ServerSelectionTimeoutError) as e:
     print("  docker-compose ps")
     print("  docker-compose logs mongo")
     
-    # Update MongoDB status
-    mongodb_status = {
+    # Update MongoDB status with reconnection tracking
+    mongodb_status.update({
         'status': 'error',
         'last_checked': datetime.now(),
-        'error': str(e)
-    }
+        'error': str(e),
+        'reconnect_attempts': 1,
+        'last_reconnect_attempt': datetime.now()
+    })
     
     # Don't exit, let the app run in degraded mode
     client = None
@@ -155,21 +282,38 @@ except (ConnectionFailure, ServerSelectionTimeoutError) as e:
 
 # Wrap MongoDB operations in try/except
 def safe_db_operation(operation):
-    """Safely execute a MongoDB operation with proper error handling."""
+    """Safely execute a MongoDB operation with proper error handling and reconnection."""
+    global mongodb_status
+    
     try:
         if client is None:
-            raise ServerSelectionTimeoutError("MongoDB is not available")
+            # Try to reconnect if client is None
+            if not attempt_mongodb_reconnection():
+                raise ServerSelectionTimeoutError("MongoDB is not available")
         return operation()
+        
     except (ConnectionFailure, ServerSelectionTimeoutError) as e:
-        # Update MongoDB status
-        global mongodb_status
-        mongodb_status = {
-            'status': 'error',
-            'last_checked': datetime.now(),
-            'error': str(e)
-        }
-        # Re-raise the exception to be caught by the request handler
-        raise
+        # Try to reconnect
+        if attempt_mongodb_reconnection():
+            # If reconnection successful, retry the operation
+            try:
+                return operation()
+            except (ConnectionFailure, ServerSelectionTimeoutError) as e:
+                # If retry fails, update status and raise
+                mongodb_status.update({
+                    'status': 'error',
+                    'last_checked': datetime.now(),
+                    'error': str(e)
+                })
+                raise
+        else:
+            # If reconnection failed, update status and raise
+            mongodb_status.update({
+                'status': 'error',
+                'last_checked': datetime.now(),
+                'error': str(e)
+            })
+            raise
 
 # -------------------
 # HOME PAGE
@@ -829,4 +973,4 @@ def get_pokemon(pokemon_id):
         return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run(host='0.0.0.0', port=5001, debug=True)
