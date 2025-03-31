@@ -1,6 +1,6 @@
 services:
   web:
-    image: yourbr0ther/pokemon-smile:latest
+    image: yourbr0ther/pokemon-smile:1.0.1
     build:
       context: .
       dockerfile: Dockerfile

@@ -109,6 +109,13 @@
    - [x] Responsive layout fixes
 
 ## Version History
+- v1.0.1 - UI Improvements and Bug Fixes
+  - Enhanced settings popup design
+  - Improved music controls
+  - Fixed responsive layout issues
+  - Better profile management
+  - Consistent emoji usage
+
 - v1.0.0 - Initial release with core functionality
   - Basic brushing features
   - User authentication
