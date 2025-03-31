@@ -97,9 +97,14 @@ def main_menu():
 # -------------------
 # AUTH ROUTES
 # -------------------
-@app.route('/logout')
+@app.route('/api/logout', methods=['POST'])
 def logout():
-    session.pop('user_id', None)
+    session.clear()  # Clear all session data
+    return jsonify({"success": True, "message": "Logged out successfully"})
+
+@app.route('/logout')  # Keep the GET route for direct browser navigation
+def logout_redirect():
+    session.clear()  # Clear all session data
     return redirect(url_for('main_menu'))
 
 # -------------------
@@ -357,11 +362,11 @@ def get_active_profile():
                     profile['brushingTime'] = int(profile['brushingTime'])
                     
                 print(f"Active profile: {profile.get('name')} with brushing time: {profile.get('brushingTime')}")
-                return jsonify(profile)
+                return jsonify({"profile": profile})
         except Exception as e:
             print(f"Error retrieving active profile: {e}")
     
-    return jsonify({})
+    return jsonify({"profile": None})
 
 @app.route('/debug/session')
 def debug_session():
