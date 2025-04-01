@@ -194,17 +194,17 @@
       async function loadActiveProfile() {
         try {
           const res = await fetch("/api/active_profile");
-          const profile = await res.json();
+          const data = await res.json();
           
-          if (Object.keys(profile).length > 0) {
-            activeProfile = profile;
+          if (data.profile) {
+            activeProfile = data.profile;
             
             // Set the countdown based on user preference
             const savedTime = parseInt(activeProfile.brushingTime || 60);
             countdown = savedTime;
             timerElement.textContent = countdown;
             
-            console.log(`Loaded profile: ${profile.name} with brushing time: ${countdown} seconds`);
+            console.log(`Loaded profile: ${activeProfile.name} with brushing time: ${countdown} seconds`);
             
             if (activeProfile.buddyPokemon) {
               buddySprite.src = activeProfile.buddyPokemon.sprite;
@@ -212,10 +212,11 @@
             }
           } else {
             console.warn("No active profile found. Please log in.");
-            window.location.href = "/login";
+            window.location.href = "/";
           }
         } catch (err) {
           console.error("Failed to load active profile:", err);
+          window.location.href = "/";
         }
       }
 
@@ -619,19 +620,23 @@
           sprite: shadowPokemon.src,
           types: mysteryPokemonTypes,
           generation: mysteryPokemonGeneration,
-          brushing: brushingStats // Add brushing stats to the saved Pokémon
+          brushing: brushingStats,
+          profile_id: activeProfile._id  // Add profile ID to request
         };
 
         console.log("Saving Pokémon:", newPokemon);
         console.log("Active profile:", activeProfile);
 
-        // Use absolute URL path to avoid redirections
-        const apiUrl = window.location.origin + `/api/save_pokemon/${activeProfile.name}`;
+        // Use the profile ID instead of name
+        const apiUrl = window.location.origin + `/api/save_pokemon`;
         console.log("API URL:", apiUrl);
 
         fetch(apiUrl, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { 
+            "Content-Type": "application/json",
+            "X-Profile-ID": activeProfile._id  // Also add as header for extra safety
+          },
           body: JSON.stringify(newPokemon)
         })
         .then(res => {

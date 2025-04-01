@@ -142,13 +142,16 @@ def get_random_pokemon_sprite():
 
 @app.route('/')
 def main_menu():
+    print("\n=== GET / (main_menu) ===")
     # Check if user is logged in
     if 'user_id' in session:
+        print(f"User ID in session: {session['user_id']}")
         # Get the user's profile
         user_id = session['user_id']
         try:
             if not isinstance(user_id, ObjectId):
                 user_id = ObjectId(user_id)
+                print(f"Converted user_id to ObjectId: {user_id}")
                 
             def get_profile():
                 return profiles_collection.find_one({"_id": user_id})
@@ -164,16 +167,27 @@ def main_menu():
                                     pokemon_name=buddy.get('name', 'Buddy'),
                                     logged_in=True,
                                     username=profile.get('name', 'User'))
+            else:
+                print(f"No valid profile or buddy found for user_id: {user_id}")
+                # Clear invalid session
+                session.clear()
+                
         except (ConnectionFailure, ServerSelectionTimeoutError) as e:
+            print(f"MongoDB connection error: {e}")
             # Show error page for MongoDB connection issues
             return render_template('error.html',
                 error_title='Service Unavailable',
                 error_message='We are experiencing technical difficulties. Please try again later.',
                 status=mongodb_status
             ), 503
+        except Exception as e:
+            print(f"Unexpected error in main_menu: {e}")
+            session.clear()
+    else:
+        print("No user_id in session")
     
     # Not logged in or no profile found - show random Pokémon
-    print("No user logged in or no buddy - showing random Pokémon")
+    print("Showing random Pokémon for non-logged in user")
     random_pokemon = get_random_pokemon_sprite()
     return render_template('index.html', 
                         sprite_url=random_pokemon['sprite'], 
@@ -310,55 +324,75 @@ def load_profile(name):
         return jsonify(profile)
     return jsonify({})
 
-@app.route('/api/save_pokemon/<profile_name>', methods=['POST'])
-def save_pokemon(profile_name):
+@app.route('/api/save_pokemon', methods=['POST'])
+def save_pokemon():
     data = request.json
     
     # Add more detailed logging
-    print(f"POST /api/save_pokemon/{profile_name}")
+    print(f"POST /api/save_pokemon")
     print(f"Request data: {data}")
     print(f"Session data: {session}")
+    print(f"Headers: {dict(request.headers)}")
     
     # Only save if user is logged in
-    if 'user_id' in session:
-        user_id = session['user_id']
-        try:
-            if not isinstance(user_id, ObjectId):
-                user_id = ObjectId(user_id)
-        except Exception as e:
-            print(f"Error converting user_id to ObjectId: {e}")
-            return jsonify({"status": "error", "message": "Invalid user ID format"}), 400
-            
-        # Log the save attempt for debugging
-        print(f"Attempting to save Pokémon for user_id: {user_id}")
-        print(f"Pokémon data: {data}")
-        
-        try:
-            # First check if the user profile exists
-            profile = profiles_collection.find_one({"_id": user_id})
-            if not profile:
-                print(f"Profile not found for user_id: {user_id}")
-                return jsonify({"status": "error", "message": "User profile not found"}), 404
-            
-            # Now update with the new Pokemon
-            result = profiles_collection.update_one(
-                {"_id": user_id},
-                {"$push": {"caught_pokemon": data}}
-            )
-            
-            # Check if the update was successful
-            if result.modified_count > 0:
-                print(f"Successfully saved Pokémon to database")
-                return jsonify({"status": "success", "message": "Pokémon saved successfully"})
-            else:
-                print(f"No changes made to database. This might be expected behavior if the document didn't change.")
-                return jsonify({"status": "success", "message": "No changes made"}), 200
-        except Exception as e:
-            print(f"Database error when saving Pokémon: {e}")
-            return jsonify({"status": "error", "message": f"Database error: {str(e)}"}), 500
-    else:
+    if 'user_id' not in session:
         print("User not logged in when trying to save Pokémon")
         return jsonify({"status": "error", "message": "Not logged in"}), 401
+    
+    # Get user_id from session and profile_id from request
+    user_id = session['user_id']
+    profile_id = data.get('profile_id') or request.headers.get('X-Profile-ID')
+    
+    # Verify the profile_id matches the session user_id
+    if profile_id != user_id:
+        print(f"Profile ID mismatch: session={user_id}, request={profile_id}")
+        return jsonify({"status": "error", "message": "Profile ID mismatch"}), 403
+    
+    try:
+        if not isinstance(user_id, ObjectId):
+            user_id = ObjectId(user_id)
+    except Exception as e:
+        print(f"Error converting user_id to ObjectId: {e}")
+        return jsonify({"status": "error", "message": "Invalid user ID format"}), 400
+        
+    # Log the save attempt for debugging
+    print(f"Attempting to save Pokémon for user_id: {user_id}")
+    print(f"Pokémon data: {data}")
+    
+    try:
+        # First check if the user profile exists
+        profile = profiles_collection.find_one({"_id": user_id})
+        if not profile:
+            print(f"Profile not found for user_id: {user_id}")
+            return jsonify({"status": "error", "message": "User profile not found"}), 404
+        
+        # Initialize caught_pokemon array if it doesn't exist
+        if 'caught_pokemon' not in profile:
+            print("Initializing caught_pokemon array")
+            profiles_collection.update_one(
+                {"_id": user_id},
+                {"$set": {"caught_pokemon": []}}
+            )
+        
+        # Prepare Pokemon data for saving (remove profile_id)
+        pokemon_data = {k: v for k, v in data.items() if k != 'profile_id'}
+        
+        # Now update with the new Pokemon
+        result = profiles_collection.update_one(
+            {"_id": user_id},
+            {"$push": {"caught_pokemon": pokemon_data}}
+        )
+        
+        # Check if the update was successful
+        if result.modified_count > 0:
+            print(f"Successfully saved Pokémon to database")
+            return jsonify({"status": "success", "message": "Pokémon saved successfully"})
+        else:
+            print(f"No changes made to database. This might be expected behavior if the document didn't change.")
+            return jsonify({"status": "success", "message": "No changes made"}), 200
+    except Exception as e:
+        print(f"Database error when saving Pokémon: {e}")
+        return jsonify({"status": "error", "message": f"Database error: {str(e)}"}), 500
 
 @app.route('/api/get_pokedex')
 def get_pokedex():
@@ -387,72 +421,54 @@ def get_pokedex():
         print(f"No profile found for user_id: {user_id}")
         return jsonify([])
 
-@app.route('/api/get_profiles')
+@app.route('/api/profiles')
 def get_profiles():
     try:
-        print("\n=== GET /api/get_profiles ===")
-        print("Fetching all profiles from MongoDB...")
-        
-        # Get all profiles from the database with no filters
-        cursor = profiles_collection.find({})
-        profiles = list(cursor)
-        
-        print(f"Found {len(profiles)} profiles in database")
-        print("Profile IDs found:", [str(p['_id']) for p in profiles])
-        print("Profile names found:", [p.get('name', 'MISSING') for p in profiles])
+        profiles = list(profiles_collection.find({}, {
+            'name': 1,
+            'buddyPokemon': 1
+        }))
         
         # Convert ObjectId to string for JSON serialization
-        serialized_profiles = []
         for profile in profiles:
-            try:
-                profile_copy = profile.copy()
-                profile_copy['_id'] = str(profile['_id'])
-                
-                # Log profile details for debugging
-                print(f"\nProcessing profile:")
-                print(f"ID: {profile_copy['_id']}")
-                print(f"Name: {profile_copy.get('name', 'MISSING')}")
-                print(f"Has password: {bool(profile_copy.get('password'))}")
-                print(f"Buddy Pokemon: {profile_copy.get('buddyPokemon', 'MISSING')}")
-                
-                # Add profile to list
-                serialized_profiles.append(profile_copy)
-                
-            except Exception as e:
-                print(f"Error processing profile {profile.get('_id')}: {e}")
-                continue
+            profile['_id'] = str(profile['_id'])
         
-        print(f"\nReturning {len(serialized_profiles)} serialized profiles")
-        return jsonify(serialized_profiles)
+        return jsonify({
+            'success': True,
+            'profiles': profiles
+        })
     except Exception as e:
-        print(f"Error getting profiles: {e}")
-        return jsonify({"error": str(e)}), 500
+        print(f"Error fetching profiles: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': 'Failed to fetch profiles'
+        }), 500
 
 @app.route('/api/active_profile')
 def get_active_profile():
-    if 'user_id' in session:
-        try:
-            user_id = session['user_id']
-            if not isinstance(user_id, ObjectId):
-                user_id = ObjectId(user_id)
-                
-            profile = profiles_collection.find_one({"_id": user_id})
-            if profile:
-                # Convert ObjectId to string for JSON serialization
-                profile['_id'] = str(profile['_id'])
-                
-                # Ensure brushingTime is present and is an integer
-                if 'brushingTime' not in profile:
-                    profile['brushingTime'] = 60
-                else:
-                    profile['brushingTime'] = int(profile['brushingTime'])
-                    
-                print(f"Active profile: {profile.get('name')} with brushing time: {profile.get('brushingTime')}")
-                return jsonify({"profile": profile})
-        except Exception as e:
-            print(f"Error retrieving active profile: {e}")
-    
-    return jsonify({"profile": None})
+    try:
+        if 'user_id' not in session:
+            print("No user_id in session")
+            return jsonify({'profile': None})
+        
+        user_id = ObjectId(session['user_id'])
+        profile = profiles_collection.find_one({'_id': user_id})
+        
+        if not profile:
+            print(f"No profile found for user_id: {user_id}")
+            session.clear()
+            return jsonify({'profile': None})
+        
+        # Convert ObjectId to string for JSON serialization
+        profile['_id'] = str(profile['_id'])
+        
+        print(f"Found profile for {profile['name']}")
+        return jsonify({'profile': profile})
+        
+    except Exception as e:
+        print(f"Error fetching active profile: {str(e)}")
+        session.clear()
+        return jsonify({'profile': None})
 
 @app.route('/debug/session')
 def debug_session():
@@ -492,6 +508,50 @@ def debug_session():
     })
 
 @app.route('/api/login', methods=['POST'])
+def login():
+    try:
+        data = request.get_json()
+        name = data.get('name')
+        password = data.get('password')
+        
+        if not name or not password:
+            return jsonify({
+                'success': False,
+                'message': 'Name and password are required'
+            }), 400
+        
+        # Find the profile
+        profile = profiles_collection.find_one({'name': name})
+        
+        if not profile:
+            return jsonify({
+                'success': False,
+                'message': 'Profile not found'
+            }), 404
+            
+        # Verify password
+        if profile.get('password') != password:
+            return jsonify({
+                'success': False,
+                'message': 'Invalid password'
+            }), 401
+        
+        # Set the user_id in session
+        session['user_id'] = str(profile['_id'])
+        print(f"Logged in user: {name} with ID: {session['user_id']}")
+        
+        return jsonify({
+            'success': True,
+            'message': 'Login successful'
+        })
+        
+    except Exception as e:
+        print(f"Error during login: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': 'Login failed'
+        }), 500
+
 def api_login():
     data = request.json
     name = data.get('name')
