@@ -1,0 +1,117 @@
+.service-error-popup {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background-color: #fff;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    padding: 16px;
+    max-width: 320px;
+    z-index: 9999;
+    display: flex;
+    align-items: flex-start;
+    transform: translateY(150%);
+    transition: transform 0.3s ease-out;
+    border-left: 4px solid #f44336;
+}
+
+.service-error-popup.show {
+    transform: translateY(0);
+}
+
+.service-error-popup.warning {
+    border-left-color: #ff9800;
+}
+
+.service-error-popup.info {
+    border-left-color: #2196f3;
+}
+
+.service-error-popup-content {
+    flex-grow: 1;
+    margin-right: 12px;
+}
+
+.service-error-popup-title {
+    font-size: 14px;
+    font-weight: 600;
+    margin: 0 0 4px 0;
+    color: #333;
+}
+
+.service-error-popup-message {
+    font-size: 12px;
+    color: #666;
+    margin: 0;
+}
+
+.service-error-popup-status {
+    display: flex;
+    align-items: center;
+    margin-top: 8px;
+    font-size: 12px;
+}
+
+.service-error-popup-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 6px;
+}
+
+.service-error-popup-dot.error {
+    background-color: #f44336;
+    box-shadow: 0 0 4px #f44336;
+}
+
+.service-error-popup-dot.warning {
+    background-color: #ff9800;
+    box-shadow: 0 0 4px #ff9800;
+}
+
+.service-error-popup-dot.healthy {
+    background-color: #4caf50;
+    box-shadow: 0 0 4px #4caf50;
+}
+
+.service-error-popup-close {
+    background: none;
+    border: none;
+    padding: 4px;
+    cursor: pointer;
+    color: #999;
+    line-height: 1;
+}
+
+.service-error-popup-close:hover {
+    color: #666;
+}
+
+.service-error-popup-actions {
+    margin-top: 12px;
+    display: flex;
+    gap: 8px;
+}
+
+.service-error-popup-button {
+    font-size: 12px;
+    padding: 4px 8px;
+    border-radius: 4px;
+    border: 1px solid #ddd;
+    background: #f5f5f5;
+    cursor: pointer;
+}
+
+.service-error-popup-button:hover {
+    background: #e0e0e0;
+}
+
+.service-error-popup-button.primary {
+    background: #2196f3;
+    color: white;
+    border-color: #1976d2;
+}
+
+.service-error-popup-button.primary:hover {
+    background: #1976d2;
+} 
