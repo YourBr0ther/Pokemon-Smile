@@ -1,53 +1,41 @@
 class ServiceErrorPopup {
     constructor() {
-        this.popup = null;
-        this.timeoutId = null;
-        this.checkInterval = null;
-        this.lastStatus = null;
-        console.log('Initializing ServiceErrorPopup...');
-        this.initializePopup();
+        this.lastStatus = 'unknown';
+        this.retryCount = 0;
+        this.maxRetries = 3;
+        this.retryDelay = 5000; // 5 seconds
+        this.setupPopup();
         this.startHealthCheck();
     }
 
-    initializePopup() {
-        // Create popup element if it doesn't exist
-        if (!this.popup) {
-            console.log('Creating error popup element...');
-            this.popup = document.createElement('div');
-            this.popup.className = 'service-error-popup';
-            this.popup.innerHTML = `
-                <div class="service-error-popup-content">
-                    <h3 class="service-error-popup-title">Service Status</h3>
-                    <p class="service-error-popup-message"></p>
-                    <div class="service-error-popup-status">
-                        <span class="service-error-popup-dot"></span>
-                        <span class="service-error-popup-status-text"></span>
+    setupPopup() {
+        // Create popup container if it doesn't exist
+        if (!document.getElementById('service-error-popup')) {
+            const popup = document.createElement('div');
+            popup.id = 'service-error-popup';
+            popup.className = 'service-error-popup';
+            popup.innerHTML = `
+                <div class="popup-content">
+                    <span class="close-button">&times;</span>
+                    <div class="status-indicator">
+                        <span class="status-dot"></span>
+                        <h3 class="popup-title"></h3>
                     </div>
-                    <div class="service-error-popup-actions">
-                        <button class="service-error-popup-button primary retry-action">Retry</button>
-                        <button class="service-error-popup-button dismiss-action">Dismiss</button>
+                    <p class="popup-message"></p>
+                    <div class="popup-actions">
+                        <button class="retry-button">Retry Connection</button>
+                        <button class="dismiss-button">Dismiss</button>
                     </div>
                 </div>
-                <button class="service-error-popup-close" aria-label="Close">×</button>
             `;
-            document.body.appendChild(this.popup);
-
-            // Add event listeners
-            this.popup.querySelector('.service-error-popup-close').addEventListener('click', () => this.hide());
-            this.popup.querySelector('.dismiss-action').addEventListener('click', () => this.hide());
-            this.popup.querySelector('.retry-action').addEventListener('click', () => this.retryConnection());
-            console.log('Error popup element created and initialized');
+            document.body.appendChild(popup);
             
-            // Debug: Check if styles are applied
-            const computedStyle = window.getComputedStyle(this.popup);
-            console.log('Popup styles:', {
-                position: computedStyle.position,
-                bottom: computedStyle.bottom,
-                right: computedStyle.right,
-                zIndex: computedStyle.zIndex,
-                transform: computedStyle.transform
-            });
+            // Set up event listeners
+            popup.querySelector('.close-button').addEventListener('click', () => this.hide());
+            popup.querySelector('.retry-button').addEventListener('click', () => this.retryConnection());
+            popup.querySelector('.dismiss-button').addEventListener('click', () => this.hide());
         }
+        this.popup = document.getElementById('service-error-popup');
     }
 
     async checkHealth() {
@@ -56,25 +44,24 @@ class ServiceErrorPopup {
             const response = await fetch('/api/health');
             console.log('Health check response status:', response.status);
             
-            // Handle non-200 responses explicitly
+            const data = await response.json();
+            console.log('Health check response data:', data);
+            
+            // Reset retry count on successful response
+            this.retryCount = 0;
+            
+            // Handle different status codes
             if (response.status === 503) {
-                const data = await response.json();
-                console.log('Service degraded response:', data);
                 this.lastStatus = 'error';
-                this.showError(
-                    'Service Unavailable',
-                    'Database connection lost. Some features may be unavailable.',
-                    'error'
-                );
+                const message = data.services?.mongodb?.error || 
+                              'Database connection lost. Some features may be unavailable.';
+                this.showError('Service Unavailable', message, 'error');
                 return;
             }
             
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
-            
-            const data = await response.json();
-            console.log('Health check response data:', data);
             
             // Debug: Log all service statuses
             if (data.services) {
@@ -83,16 +70,19 @@ class ServiceErrorPopup {
                 });
             }
             
+            const mongoStatus = data.services?.mongodb?.status || 'unknown';
+            
             // Only show status changes
-            if (this.lastStatus !== data.status) {
-                console.log('Status changed from', this.lastStatus, 'to', data.status);
-                this.lastStatus = data.status;
+            if (this.lastStatus !== mongoStatus) {
+                console.log('Status changed from', this.lastStatus, 'to', mongoStatus);
+                this.lastStatus = mongoStatus;
                 
-                if (data.status !== 'healthy') {
-                    const mongoStatus = data.services?.mongodb?.status || 'error';
+                if (mongoStatus !== 'healthy') {
+                    const errorMessage = data.services?.mongodb?.error || 
+                                      'We\'re experiencing some technical difficulties. Some features may be unavailable.';
                     this.showError(
                         'Service Degraded',
-                        'We\'re experiencing some technical difficulties. Some features may be unavailable.',
+                        errorMessage,
                         mongoStatus
                     );
                 } else if (this.popup.classList.contains('show')) {
@@ -104,6 +94,15 @@ class ServiceErrorPopup {
         } catch (error) {
             console.error('Health check failed:', error);
             this.lastStatus = 'error';
+            
+            // Implement exponential backoff for retries
+            this.retryCount++;
+            if (this.retryCount <= this.maxRetries) {
+                const delay = this.retryDelay * Math.pow(2, this.retryCount - 1);
+                console.log(`Scheduling retry ${this.retryCount} in ${delay}ms`);
+                setTimeout(() => this.checkHealth(), delay);
+            }
+            
             this.showError(
                 'Connection Error',
                 'Unable to connect to services. Please check your internet connection.',
@@ -117,117 +116,65 @@ class ServiceErrorPopup {
         console.log('Starting health checks...');
         this.checkHealth();
         
-        // Set up periodic checks every 5 seconds (reduced from 10)
-        this.checkInterval = setInterval(() => this.checkHealth(), 5000);
+        // Set up periodic checks every 5 seconds
+        this.checkInterval = setInterval(() => {
+            // Only check if we haven't exceeded retry attempts
+            if (this.retryCount <= this.maxRetries) {
+                this.checkHealth();
+            }
+        }, 5000);
     }
 
-    showError(title, message, status) {
-        console.log('Showing error:', { title, message, status });
+    showError(title, message, status = 'error') {
+        const statusDot = this.popup.querySelector('.status-dot');
+        statusDot.className = `status-dot ${status}`;
         
-        // Debug: Verify popup exists
-        if (!this.popup) {
-            console.error('Popup element not found!');
-            this.initializePopup();
-        }
-        
-        this.popup.querySelector('.service-error-popup-title').textContent = title;
-        this.popup.querySelector('.service-error-popup-message').textContent = message;
-        
-        const dot = this.popup.querySelector('.service-error-popup-dot');
-        const statusText = this.popup.querySelector('.service-error-popup-status-text');
-        
-        dot.className = 'service-error-popup-dot ' + status;
-        statusText.textContent = status.charAt(0).toUpperCase() + status.slice(1);
-        
-        // Debug: Log current classes
-        console.log('Current popup classes:', this.popup.className);
-        
-        this.popup.className = 'service-error-popup show';
-        
-        // Debug: Verify visibility
-        setTimeout(() => {
-            const isVisible = window.getComputedStyle(this.popup).transform === 'matrix(1, 0, 0, 1, 0, 0)';
-            console.log('Popup visibility check:', {
-                classes: this.popup.className,
-                transform: window.getComputedStyle(this.popup).transform,
-                isVisible
-            });
-        }, 100);
-        
-        // Clear any existing timeout
-        if (this.timeoutId) {
-            clearTimeout(this.timeoutId);
-            this.timeoutId = null;
-        }
+        this.popup.querySelector('.popup-title').textContent = title;
+        this.popup.querySelector('.popup-message').textContent = message;
+        this.popup.classList.add('show');
     }
 
     showSuccess(title, message) {
-        console.log('Showing success:', { title, message });
-        this.popup.querySelector('.service-error-popup-title').textContent = title;
-        this.popup.querySelector('.service-error-popup-message').textContent = message;
+        const statusDot = this.popup.querySelector('.status-dot');
+        statusDot.className = 'status-dot healthy';
         
-        const dot = this.popup.querySelector('.service-error-popup-dot');
-        const statusText = this.popup.querySelector('.service-error-popup-status-text');
-        
-        dot.className = 'service-error-popup-dot healthy';
-        statusText.textContent = 'Healthy';
-        
-        this.popup.className = 'service-error-popup show info';
-        
-        // Auto-hide success message after 3 seconds
-        this.timeoutId = setTimeout(() => this.hide(), 3000);
-    }
-
-    showWarning(title, message) {
-        console.log('Showing warning:', { title, message });
-        this.popup.querySelector('.service-error-popup-title').textContent = title;
-        this.popup.querySelector('.service-error-popup-message').textContent = message;
-        
-        const dot = this.popup.querySelector('.service-error-popup-dot');
-        const statusText = this.popup.querySelector('.service-error-popup-status-text');
-        
-        dot.className = 'service-error-popup-dot warning';
-        statusText.textContent = 'Warning';
-        
-        this.popup.className = 'service-error-popup show warning';
+        this.popup.querySelector('.popup-title').textContent = title;
+        this.popup.querySelector('.popup-message').textContent = message;
+        this.popup.classList.add('show');
     }
 
     hide() {
-        console.log('Hiding popup');
         this.popup.classList.remove('show');
     }
 
     async retryConnection() {
         console.log('Retrying connection...');
         this.showWarning('Retrying Connection', 'Attempting to restore service connection...');
+        
+        // Reset retry count when manually retrying
+        this.retryCount = 0;
         await this.checkHealth();
     }
 
-    destroy() {
-        console.log('Destroying error popup...');
-        if (this.checkInterval) {
-            clearInterval(this.checkInterval);
-        }
-        if (this.timeoutId) {
-            clearTimeout(this.timeoutId);
-        }
-        if (this.popup && this.popup.parentNode) {
-            this.popup.parentNode.removeChild(this.popup);
-        }
+    showWarning(title, message) {
+        const statusDot = this.popup.querySelector('.status-dot');
+        statusDot.className = 'status-dot unknown';
+        
+        this.popup.querySelector('.popup-title').textContent = title;
+        this.popup.querySelector('.popup-message').textContent = message;
+        this.popup.classList.add('show');
     }
 }
 
-// Initialize the error popup system
-let serviceErrorPopup;
-document.addEventListener('DOMContentLoaded', () => {
-    console.log('DOM loaded, initializing ServiceErrorPopup...');
-    serviceErrorPopup = new ServiceErrorPopup();
-});
+// Initialize the error popup
+const serviceErrorPopup = new ServiceErrorPopup();
 
 // Handle page visibility changes
 document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible' && serviceErrorPopup) {
         console.log('Page became visible, checking health...');
+        // Reset retry count when page becomes visible
+        serviceErrorPopup.retryCount = 0;
         serviceErrorPopup.checkHealth();
     }
 });
